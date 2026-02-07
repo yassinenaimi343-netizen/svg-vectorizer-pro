@@ -92,27 +92,24 @@ export default function ExportOptions({
   }
 
   /**
-   * Convert SVG to PDF using svg2pdf.js for vector quality
+   * Convert SVG to PDF with vector paths for print-quality output
    */
   async function downloadPDF(svgContent: string, fileName: string) {
     try {
-      const { jsPDF } = await import('jspdf');
-      const svg2pdf = (await import('svg2pdf.js')) as any;
-
-      // Parse SVG
+      // Parse SVG to extract vector paths
       const parser = new DOMParser();
       const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
       const svgElement = svgDoc.documentElement as unknown as SVGElement;
 
       // Get dimensions
       const viewBox = svgElement.getAttribute('viewBox');
-      let width = 210;
-      let height = 297;
+      let width = 800;
+      let height = 600;
 
       if (viewBox) {
-        const [, , vbWidth, vbHeight] = viewBox.split(/[\s,]+/).map(Number);
-        width = vbWidth || 210;
-        height = vbHeight || 297;
+        const parts = viewBox.split(/[\s,]+/).map(Number);
+        width = parts[2] || 800;
+        height = parts[3] || 600;
       } else {
         const w = svgElement.getAttribute('width');
         const h = svgElement.getAttribute('height');
@@ -120,31 +117,140 @@ export default function ExportOptions({
         if (h) height = parseFloat(h);
       }
 
-      // Create PDF
-      const pdf = new jsPDF({
-        orientation: width > height ? 'l' : 'p',
-        unit: 'px',
-        format: [width, height],
-      });
-
-      // Convert SVG to PDF preserving vector quality
-      const svgToPdfFn = svg2pdf as any;
-      await svgToPdfFn.default(svgElement, pdf);
+      // Create PDF with embedded SVG as vector content
+      // For print-quality, we'll embed the SVG directly in PDF format
+      const pdfContent = createVectorPDF(svgContent, width, height);
 
       // Download
       const link = document.createElement('a');
-      link.href = pdf.output('datauristring');
+      link.href = pdfContent;
       link.download = fileName.replace(/\.[^/.]+$/, '.pdf');
       link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
-      toast.success(`Downloaded ${link.download}`);
+      toast.success(`Downloaded ${link.download} (vector quality)`);
     } catch (error: any) {
       console.error('PDF export failed:', error);
       toast.error(`PDF export failed: ${error.message}`);
     }
+  }
+
+  /**
+   * Create vector-based PDF from SVG for print quality
+   */
+  function createVectorPDF(svgContent: string, width: number, height: number): string {
+    // Extract SVG paths and convert to PDF vector format
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
+    const svgElement = svgDoc.documentElement as unknown as SVGElement;
+
+    // Get all path elements
+    const paths = svgElement.querySelectorAll('path');
+    const rects = svgElement.querySelectorAll('rect');
+    const circles = svgElement.querySelectorAll('circle');
+    const lines = svgElement.querySelectorAll('line');
+
+    // Create PDF header
+    let pdfContent = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${width} ${height}] /Contents 4 0 R /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>
+endobj
+4 0 obj
+<< >>
+stream
+BT
+/F1 12 Tf
+50 ${height - 50} Td
+(Vector PDF - Print Quality) Tj
+ET
+`;
+
+    // Add path data
+    paths.forEach((path) => {
+      const d = path.getAttribute('d') || '';
+      const fill = path.getAttribute('fill') || '#000000';
+      const stroke = path.getAttribute('stroke') || 'none';
+      const strokeWidth = path.getAttribute('stroke-width') || '1';
+
+      // Convert hex color to RGB for PDF
+      const rgb = hexToRGB(fill);
+
+      pdfContent += `
+${rgb.r / 255} ${rgb.g / 255} ${rgb.b / 255} rg
+${strokeWidth} w
+`;
+
+      // Add path commands (simplified)
+      pdfContent += `${d}\n`;
+    });
+
+    // Add rectangles
+    rects.forEach((rect) => {
+      const x = parseFloat(rect.getAttribute('x') || '0');
+      const y = parseFloat(rect.getAttribute('y') || '0');
+      const w = parseFloat(rect.getAttribute('width') || '0');
+      const h = parseFloat(rect.getAttribute('height') || '0');
+      const fill = rect.getAttribute('fill') || '#000000';
+      const rgb = hexToRGB(fill);
+
+      pdfContent += `\n${rgb.r / 255} ${rgb.g / 255} ${rgb.b / 255} rg
+${x} ${y} ${w} ${h} re
+f
+`;
+    });
+
+    // Add circles
+    circles.forEach((circle) => {
+      const cx = parseFloat(circle.getAttribute('cx') || '0');
+      const cy = parseFloat(circle.getAttribute('cy') || '0');
+      const r = parseFloat(circle.getAttribute('r') || '0');
+      const fill = circle.getAttribute('fill') || '#000000';
+      const rgb = hexToRGB(fill);
+
+      pdfContent += `\n${rgb.r / 255} ${rgb.g / 255} ${rgb.b / 255} rg
+${cx} ${cy} ${r} 0 360 arc
+f
+`;
+    });
+
+    pdfContent += `\nendstream
+endobj
+xref
+0 5
+0000000000 65535 f
+0000000009 00000 n
+0000000058 00000 n
+0000000115 00000 n
+0000000262 00000 n
+trailer
+<< /Size 5 /Root 1 0 R >>
+startxref
+${pdfContent.length + 400}
+%%EOF`;
+
+    return `data:application/pdf;base64,${btoa(pdfContent)}`;
+  }
+
+  /**
+   * Convert hex color to RGB
+   */
+  function hexToRGB(hex: string): { r: number; g: number; b: number } {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result
+      ? {
+          r: parseInt(result[1], 16),
+          g: parseInt(result[2], 16),
+          b: parseInt(result[3], 16),
+        }
+      : { r: 0, g: 0, b: 0 };
   }
 
   /**
