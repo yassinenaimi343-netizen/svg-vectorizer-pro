@@ -173,47 +173,13 @@ export default function ExportOptions({
   }
 
   /**
-   * Download as Adobe Illustrator format (EPS-based with SVG content)
+   * Download as Adobe Illustrator format - uses same mechanism as bulk export
    */
   function downloadAI(svgContent: string, fileName: string) {
     try {
-      // Create proper AI file with SVG embedded
-      // Adobe Illustrator can read SVG content embedded in EPS
-      const parser = new DOMParser();
-      const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
-      const svgElement = svgDoc.documentElement as unknown as SVGElement;
-
-      const viewBox = svgElement.getAttribute('viewBox');
-      let bbox = '0 0 1000 1000';
-
-      if (viewBox) {
-        const [x, y, w, h] = viewBox.split(/[\s,]+/).map(Number);
-        bbox = `${x} ${y} ${x + w} ${y + h}`;
-      }
-
-      // Create AI file with proper header
-      const aiContent = `%!PS-Adobe-3.0 EPSF-3.0
-%%BoundingBox: ${bbox}
-%%Title: ${fileName}
-%%Creator: SVG Bulk Vectorizer
-%%CreationDate: ${new Date().toISOString()}
-%%EndComments
-
-% Vector content from SVG
-% This file can be opened in Adobe Illustrator
-gsave
-0 setlinewidth
-0 0 0 setrgbcolor
-
-% Embedded SVG content
-${svgContent}
-
-grestore
-showpage
-%%EOF`;
-
-      // Use Blob for better compatibility instead of data URI
-      const blob = new Blob([aiContent], { type: 'application/postscript' });
+      // Use the same mechanism as bulk export: save SVG content directly as .ai
+      // Adobe Illustrator can open SVG files with .ai extension
+      const blob = new Blob([svgContent], { type: 'image/svg+xml' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = fileName.replace(/\.[^/.]+$/, '.ai');
