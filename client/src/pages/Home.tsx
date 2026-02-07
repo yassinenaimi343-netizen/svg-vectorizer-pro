@@ -18,6 +18,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, Zap } from 'lucide-react';
+import { useAuth } from '@/_core/hooks/useAuth';
 import BulkUploader, { UploadedFile } from '@/components/BulkUploader';
 import ConversionResults, { ConversionResult } from '@/components/ConversionResults';
 import ConversionSettings from '@/components/ConversionSettings';
@@ -30,6 +31,10 @@ import { ConversionParams, DEFAULT_PARAMS } from '@/lib/converter';
 import { conversionQueue, QueueState } from '@/lib/conversionQueue';
 
 export default function Home() {
+  // The userAuth hooks provides authentication state
+  // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
+  let { user, loading, error, isAuthenticated, logout } = useAuth();
+
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [results, setResults] = useState<ConversionResult[]>([]);
   const [params, setParams] = useState<ConversionParams>(DEFAULT_PARAMS);
