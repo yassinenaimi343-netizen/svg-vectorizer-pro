@@ -4,14 +4,13 @@
  * Based on SVGcode by Google LLC (GPL-2.0)
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, Lock, Zap, AlertCircle } from 'lucide-react';
-import { trpc } from '@/lib/trpc';
+import { Download, Lock, Zap, AlertCircle, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ExportOptionsProps {
@@ -19,6 +18,14 @@ interface ExportOptionsProps {
   imageBuffer?: string; // Base64 encoded image for AutoTrace
   fileName: string;
   onExport?: (format: string, data: Buffer) => void;
+}
+
+interface ExportFormat {
+  id: string;
+  name: string;
+  available: boolean;
+  requiresPro: boolean;
+  description: string;
 }
 
 export default function ExportOptions({
@@ -30,15 +37,44 @@ export default function ExportOptions({
   const [selectedFormats, setSelectedFormats] = useState<string[]>(['svg']);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Fetch available formats and features
-  const { data: availableFormats, isLoading: formatsLoading } = trpc.export.getAvailableFormats.useQuery();
-  const { data: autoTraceStatus } = trpc.export.checkAutoTraceStatus.useQuery();
-  const { data: features } = trpc.payment.getFeatures.useQuery();
-
-  // Export mutations
-  const exportSVGMutation = trpc.export.exportSVG.useMutation();
-  const exportFormatMutation = trpc.export.exportFormat.useMutation();
-  const exportMultipleMutation = trpc.export.exportMultipleFormats.useMutation();
+  // Available formats - SVG is always available, others require Pro
+  const availableFormats: ExportFormat[] = useMemo(() => [
+    {
+      id: 'svg',
+      name: 'SVG (Vector)',
+      available: true,
+      requiresPro: false,
+      description: 'Scalable Vector Graphics - best quality for web',
+    },
+    {
+      id: 'pdf',
+      name: 'PDF (Vector)',
+      available: true,
+      requiresPro: true,
+      description: 'Portable Document Format - professional print',
+    },
+    {
+      id: 'eps',
+      name: 'EPS (PostScript)',
+      available: true,
+      requiresPro: true,
+      description: 'Encapsulated PostScript - professional print',
+    },
+    {
+      id: 'ai',
+      name: 'Adobe Illustrator',
+      available: true,
+      requiresPro: true,
+      description: 'Native Adobe format for professional editing',
+    },
+    {
+      id: 'dxf',
+      name: 'AutoCAD DXF',
+      available: true,
+      requiresPro: true,
+      description: 'CAD format for technical drawings',
+    },
+  ], []);
 
   /**
    * Handle format selection
@@ -54,31 +90,29 @@ export default function ExportOptions({
   /**
    * Download single file
    */
-  function downloadFile(data: string | Buffer, format: string, fileName: string) {
-    const element = document.createElement('a');
-    let blob: Blob;
-
-    if (typeof data === 'string') {
-      // Base64 encoded data
-      const binaryString = atob(data);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+  function downloadFile(data: string, format: string, fileName: string) {
+    try {
+      const element = document.createElement('a');
+      
+      if (format === 'svg') {
+        // SVG is text-based
+        element.href = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(data)}`;
+      } else {
+        // Other formats are base64 encoded
+        element.href = `data:application/octet-stream;base64,${data}`;
       }
-      blob = new Blob([bytes]);
-    } else {
-      // Direct buffer - convert to Uint8Array
-      const uint8Array = new Uint8Array(data as any);
-      blob = new Blob([uint8Array]);
+      
+      element.download = fileName;
+      element.style.display = 'none';
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+      
+      toast.success(`Downloaded ${fileName}`);
+    } catch (error) {
+      console.error('Download failed:', error);
+      toast.error('Failed to download file');
     }
-
-    element.href = URL.createObjectURL(blob);
-    element.download = fileName;
-    element.style.display = 'none';
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-    URL.revokeObjectURL(element.href);
   }
 
   /**
@@ -93,43 +127,25 @@ export default function ExportOptions({
     setIsExporting(true);
 
     try {
-      // Export SVG
+      // For now, only SVG export is implemented
+      // Multi-format export requires AutoTrace backend
+      
       if (selectedFormats.includes('svg')) {
-        const result = await exportSVGMutation.mutateAsync({
-          svgContent,
-          fileName,
-        });
-        downloadFile(result.data, 'svg', result.fileName);
+        // Download SVG
+        const svgFileName = fileName.replace(/\.[^/.]+$/, '.svg');
+        downloadFile(svgContent, 'svg', svgFileName);
       }
 
-      // Export other formats (requires AutoTrace and Pro plan)
-      const otherFormats = selectedFormats.filter((f) => f !== 'svg');
-      if (otherFormats.length > 0) {
-        if (!imageBuffer) {
-          toast.error('Image data required for multi-format export');
-          return;
-        }
-
-        if (otherFormats.length === 1) {
-          const result = await exportFormatMutation.mutateAsync({
-            imageBuffer,
-            format: otherFormats[0] as any,
-            fileName,
-          });
-          downloadFile(result.data, result.format, result.fileName);
-        } else {
-          const results = await exportMultipleMutation.mutateAsync({
-            imageBuffer,
-            formats: otherFormats as any,
-            fileName,
-          });
-          results.forEach((result) => {
-            downloadFile(result.data, result.format, result.fileName);
-          });
-        }
+      // Show message for Pro formats
+      const proFormats = selectedFormats.filter(f => f !== 'svg');
+      if (proFormats.length > 0) {
+        toast.info(
+          'Multi-format export (PDF, EPS, AI, DXF) requires AutoTrace installation on the server. ' +
+          'Contact support or configure AutoTrace to enable these formats.'
+        );
       }
 
-      toast.success('Export completed successfully');
+      toast.success('Export completed');
     } catch (error: any) {
       toast.error(error.message || 'Export failed');
       console.error(error);
@@ -138,43 +154,27 @@ export default function ExportOptions({
     }
   }
 
-  if (formatsLoading) {
-    return <div className="p-4 text-center text-muted-foreground">Loading export options...</div>;
-  }
-
   return (
     <div className="space-y-4">
-      {/* AutoTrace Status */}
-      {!autoTraceStatus?.available && (
-        <Alert className="bg-yellow-50 border-yellow-200">
-          <AlertCircle className="h-4 w-4 text-yellow-600" />
-          <AlertDescription className="text-yellow-900">
-            AutoTrace is not available. Multi-format export requires AutoTrace installation.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Pro Plan Required */}
-      {!features?.hasMultiFormatExport && (
-        <Alert className="bg-blue-50 border-blue-200">
-          <Zap className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-900">
-            Multi-format export (EPS, PDF, AI, DXF) requires a Pro subscription.
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* Info Banner */}
+      <Alert className="bg-amber-50 border-amber-200">
+        <AlertCircle className="h-4 w-4 text-amber-600" />
+        <AlertDescription className="text-amber-900">
+          SVG export is always available. Multi-format export (PDF, EPS, AI, DXF) requires AutoTrace installation.
+        </AlertDescription>
+      </Alert>
 
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">Export Formats</h3>
 
-        <div className="space-y-3">
-          {availableFormats?.map((format) => (
-            <div key={format.id} className="flex items-start gap-3">
+        <div className="space-y-3 mb-6">
+          {availableFormats.map((format) => (
+            <div key={format.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition">
               <Checkbox
                 id={format.id}
                 checked={selectedFormats.includes(format.id)}
                 onCheckedChange={() => toggleFormat(format.id)}
-                disabled={!format.available || (format.requiresPro && !features?.hasMultiFormatExport)}
+                disabled={format.requiresPro}
               />
               <label
                 htmlFor={format.id}
@@ -182,8 +182,8 @@ export default function ExportOptions({
               >
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{format.name}</span>
-                  {format.requiresPro && !features?.hasMultiFormatExport && (
-                    <Lock className="w-4 h-4 text-yellow-600" />
+                  {format.requiresPro && (
+                    <Lock className="w-4 h-4 text-amber-600" />
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground">{format.description}</p>
@@ -196,7 +196,7 @@ export default function ExportOptions({
         <Button
           onClick={handleExport}
           disabled={isExporting || selectedFormats.length === 0}
-          className="w-full mt-6"
+          className="w-full"
         >
           {isExporting ? (
             <>
@@ -206,15 +206,15 @@ export default function ExportOptions({
           ) : (
             <>
               <Download className="w-4 h-4 mr-2" />
-              Download Selected Formats
+              Download {selectedFormats.length > 0 ? `(${selectedFormats.length})` : ''}
             </>
           )}
         </Button>
       </Card>
 
-      {/* Format Details */}
+      {/* Format Information */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Format Information</h3>
+        <h3 className="text-lg font-semibold mb-4">Format Guide</h3>
         <Tabs defaultValue="svg" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="svg">SVG</TabsTrigger>
@@ -222,48 +222,52 @@ export default function ExportOptions({
             <TabsTrigger value="tips">Tips</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="svg" className="space-y-2">
-            <p className="text-sm">
-              <strong>SVG (Scalable Vector Graphics)</strong> is the recommended format for web and general use.
+          <TabsContent value="svg" className="space-y-2 mt-4">
+            <p className="text-sm font-medium">SVG (Scalable Vector Graphics)</p>
+            <p className="text-sm text-muted-foreground">
+              The recommended format for web and general use. SVG files are infinitely scalable without quality loss, have small file sizes, and can be edited in any text editor or vector software.
             </p>
-            <ul className="text-sm list-disc list-inside space-y-1 text-muted-foreground">
+            <ul className="text-sm list-disc list-inside space-y-1 text-muted-foreground mt-2">
               <li>Infinitely scalable without quality loss</li>
               <li>Small file sizes</li>
               <li>Full color support</li>
               <li>Editable in any text editor or vector software</li>
+              <li>Best for web, print, and general use</li>
             </ul>
           </TabsContent>
 
-          <TabsContent value="pro" className="space-y-2">
-            {!features?.hasMultiFormatExport ? (
-              <p className="text-sm text-yellow-900 bg-yellow-50 p-3 rounded">
-                Pro formats require a Pro subscription. <a href="/account" className="underline">Upgrade now</a>
-              </p>
-            ) : (
-              <>
-                <p className="text-sm">
-                  <strong>EPS (Encapsulated PostScript)</strong> - Professional print format
-                </p>
-                <p className="text-sm">
-                  <strong>PDF (Vector)</strong> - Portable Document Format with vector paths
-                </p>
-                <p className="text-sm">
-                  <strong>AI (Adobe Illustrator)</strong> - Native Adobe format for professional editing
-                </p>
-                <p className="text-sm">
-                  <strong>DXF (AutoCAD)</strong> - CAD format for technical drawings and engineering
-                </p>
-              </>
-            )}
+          <TabsContent value="pro" className="space-y-2 mt-4">
+            <p className="text-sm font-medium text-amber-900 bg-amber-50 p-2 rounded">
+              These formats require AutoTrace installation on the server
+            </p>
+            <div className="space-y-3 mt-3">
+              <div>
+                <p className="text-sm font-medium">PDF (Vector)</p>
+                <p className="text-sm text-muted-foreground">Portable Document Format with vector paths. Best for print-ready documents.</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">EPS (Encapsulated PostScript)</p>
+                <p className="text-sm text-muted-foreground">Professional print format. Legacy but still used in some workflows.</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">AI (Adobe Illustrator)</p>
+                <p className="text-sm text-muted-foreground">Native Adobe format for professional editing in Adobe Illustrator.</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">DXF (AutoCAD)</p>
+                <p className="text-sm text-muted-foreground">CAD format for technical drawings and engineering applications.</p>
+              </div>
+            </div>
           </TabsContent>
 
-          <TabsContent value="tips" className="space-y-2">
+          <TabsContent value="tips" className="space-y-2 mt-4">
             <ul className="text-sm list-disc list-inside space-y-2 text-muted-foreground">
-              <li>SVG is best for web, print, and general use</li>
-              <li>Use AI format for professional Adobe Illustrator editing</li>
-              <li>Use DXF for CAD software and technical drawings</li>
-              <li>Use PDF for print-ready documents</li>
-              <li>EPS is legacy format, use PDF for modern workflows</li>
+              <li><strong>For web:</strong> Use SVG - it's lightweight and scalable</li>
+              <li><strong>For print:</strong> Use PDF or EPS for professional quality</li>
+              <li><strong>For Adobe editing:</strong> Use AI format to maintain full compatibility</li>
+              <li><strong>For CAD software:</strong> Use DXF for technical drawings</li>
+              <li><strong>For archival:</strong> SVG is future-proof and widely supported</li>
+              <li><strong>Pro tip:</strong> Always keep the original SVG as a backup</li>
             </ul>
           </TabsContent>
         </Tabs>

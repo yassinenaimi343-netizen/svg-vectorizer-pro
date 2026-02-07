@@ -27,7 +27,6 @@ interface SVGColorEditorProps {
 interface ColorInfo {
   color: string;
   count: number;
-  paths: SVGPathElement[];
 }
 
 export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SVGColorEditorProps) {
@@ -37,53 +36,81 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
   const [newColor, setNewColor] = useState('#000000');
   const [copiedColor, setCopiedColor] = useState<string | null>(null);
   const [currentSVG, setCurrentSVG] = useState(svgContent);
+  const svgElementRef = useRef<SVGElement | null>(null);
 
   // Initialize SVG and extract colors
   useEffect(() => {
     if (!svgContainerRef.current) return;
 
-    // Parse SVG content
-    const parser = new DOMParser();
-    const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
+    try {
+      // Parse SVG content
+      const parser = new DOMParser();
+      const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
 
-    if (svgDoc.documentElement.tagName === 'parsererror') {
-      console.error('Failed to parse SVG');
-      return;
-    }
-
-    // Clear container
-    svgContainerRef.current.innerHTML = '';
-
-    // Clone and append SVG
-    const svgElement = svgDoc.documentElement.cloneNode(true) as SVGElement;
-    svgElement.style.maxWidth = '100%';
-    svgElement.style.height = 'auto';
-    svgContainerRef.current.appendChild(svgElement);
-
-    // Extract unique colors
-    const colorMap = new Map<string, SVGPathElement[]>();
-    const paths = svgElement.querySelectorAll('path, circle, rect, polygon, polyline, ellipse');
-
-    paths.forEach((path) => {
-      const fill = (path as any).getAttribute('fill') || '#000000';
-      const normalizedColor = normalizeColor(fill);
-
-      if (!colorMap.has(normalizedColor)) {
-        colorMap.set(normalizedColor, []);
+      if (svgDoc.documentElement.tagName === 'parsererror') {
+        console.error('Failed to parse SVG');
+        return;
       }
-      colorMap.get(normalizedColor)!.push(path as SVGPathElement);
-    });
 
-    // Convert to array
-    const colorList: ColorInfo[] = Array.from(colorMap.entries()).map(([color, paths]) => ({
-      color,
-      count: paths.length,
-      paths,
-    }));
+      // Clear container
+      svgContainerRef.current.innerHTML = '';
 
-    setColors(colorList);
-    if (colorList.length > 0) {
-      setSelectedColor(colorList[0].color);
+      // Clone and append SVG
+      const svgElement = svgDoc.documentElement.cloneNode(true) as SVGElement;
+      svgElement.style.maxWidth = '100%';
+      svgElement.style.height = 'auto';
+      svgElement.style.border = '1px solid #e5e7eb';
+      svgElement.style.borderRadius = '0.5rem';
+      svgElement.style.padding = '1rem';
+      svgElement.style.backgroundColor = '#f9fafb';
+      svgContainerRef.current.appendChild(svgElement);
+      svgElementRef.current = svgElement;
+
+      // Extract unique colors
+      const colorMap = new Map<string, number>();
+      const paths = svgElement.querySelectorAll('path, circle, rect, polygon, polyline, ellipse, g');
+
+      paths.forEach((path) => {
+        // Check fill attribute
+        let fill = (path as any).getAttribute('fill');
+        
+        // If no fill, check style attribute
+        if (!fill) {
+          const style = (path as any).getAttribute('style');
+          if (style) {
+            const fillMatch = style.match(/fill:\s*([^;]+)/);
+            if (fillMatch) {
+              fill = fillMatch[1].trim();
+            }
+          }
+        }
+
+        if (!fill || fill === 'none') {
+          fill = '#000000';
+        }
+
+        const normalizedColor = normalizeColor(fill);
+
+        if (!colorMap.has(normalizedColor)) {
+          colorMap.set(normalizedColor, 0);
+        }
+        colorMap.set(normalizedColor, (colorMap.get(normalizedColor) || 0) + 1);
+      });
+
+      // Convert to array
+      const colorList: ColorInfo[] = Array.from(colorMap.entries())
+        .map(([color, count]) => ({
+          color,
+          count,
+        }))
+        .sort((a, b) => b.count - a.count);
+
+      setColors(colorList);
+      if (colorList.length > 0) {
+        setSelectedColor(colorList[0].color);
+      }
+    } catch (error) {
+      console.error('Error initializing SVG editor:', error);
     }
   }, [svgContent]);
 
@@ -91,6 +118,8 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
    * Normalize color to hex format
    */
   function normalizeColor(color: string): string {
+    color = color.trim();
+
     // Handle rgb/rgba
     const rgbMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
     if (rgbMatch) {
@@ -126,18 +155,37 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
    * Change color of selected group
    */
   function changeColor(fromColor: string, toColor: string) {
-    if (!svgContainerRef.current) return;
+    if (!svgElementRef.current) return;
 
-    const svgElement = svgContainerRef.current.querySelector('svg');
-    if (!svgElement) return;
+    const svgElement = svgElementRef.current;
+    const paths = svgElement.querySelectorAll('path, circle, rect, polygon, polyline, ellipse, g');
+    
+    let changedCount = 0;
 
-    const paths = svgElement.querySelectorAll('path, circle, rect, polygon, polyline, ellipse');
     paths.forEach((path) => {
-      const fill = (path as any).getAttribute('fill') || '#000000';
+      // Check fill attribute
+      let fill = (path as any).getAttribute('fill');
+      
+      // If no fill, check style attribute
+      if (!fill) {
+        const style = (path as any).getAttribute('style');
+        if (style) {
+          const fillMatch = style.match(/fill:\s*([^;]+)/);
+          if (fillMatch) {
+            fill = fillMatch[1].trim();
+          }
+        }
+      }
+
+      if (!fill) {
+        fill = '#000000';
+      }
+
       const normalizedFill = normalizeColor(fill);
 
       if (normalizedFill === fromColor) {
         (path as any).setAttribute('fill', toColor);
+        changedCount++;
       }
     });
 
@@ -155,18 +203,21 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
     const updatedSVG = svgElement.outerHTML;
     setCurrentSVG(updatedSVG);
     onSVGChange?.(updatedSVG);
+
+    if (changedCount > 0) {
+      toast.success(`Changed ${changedCount} element(s)`);
+    }
   }
 
   /**
    * Replace all colors
    */
   function replaceAllColors(toColor: string) {
-    if (!svgContainerRef.current) return;
+    if (!svgElementRef.current) return;
 
-    const svgElement = svgContainerRef.current.querySelector('svg');
-    if (!svgElement) return;
+    const svgElement = svgElementRef.current;
+    const paths = svgElement.querySelectorAll('path, circle, rect, polygon, polyline, ellipse, g');
 
-    const paths = svgElement.querySelectorAll('path, circle, rect, polygon, polyline, ellipse');
     paths.forEach((path) => {
       (path as any).setAttribute('fill', toColor);
     });
@@ -176,7 +227,6 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
       {
         color: toColor,
         count: paths.length,
-        paths: Array.from(paths) as SVGPathElement[],
       },
     ]);
     setSelectedColor(toColor);
@@ -185,6 +235,8 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
     const updatedSVG = svgElement.outerHTML;
     setCurrentSVG(updatedSVG);
     onSVGChange?.(updatedSVG);
+
+    toast.success(`Changed all ${paths.length} element(s)`);
   }
 
   /**
@@ -202,8 +254,15 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
       const svgElement = svgDoc.documentElement.cloneNode(true) as SVGElement;
       svgElement.style.maxWidth = '100%';
       svgElement.style.height = 'auto';
+      svgElement.style.border = '1px solid #e5e7eb';
+      svgElement.style.borderRadius = '0.5rem';
+      svgElement.style.padding = '1rem';
+      svgElement.style.backgroundColor = '#f9fafb';
       svgContainerRef.current.appendChild(svgElement);
+      svgElementRef.current = svgElement;
     }
+
+    toast.success('Colors reset to original');
   }
 
   /**
@@ -213,6 +272,7 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
     navigator.clipboard.writeText(color);
     setCopiedColor(color);
     setTimeout(() => setCopiedColor(null), 2000);
+    toast.success('Color copied to clipboard');
   }
 
   /**
@@ -234,7 +294,7 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
       <Alert className="bg-blue-50 border-blue-200">
         <Palette className="h-4 w-4 text-blue-600" />
         <AlertDescription className="text-blue-900">
-          Click on colors below to change them. All paths with the same color will be updated in real-time.
+          Select a color from the palette and choose a new color. Changes apply in real-time to the preview.
         </AlertDescription>
       </Alert>
 
@@ -250,8 +310,8 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
           <Card className="p-6 bg-white border-gray-200">
             <div
               ref={svgContainerRef}
-              className="flex items-center justify-center min-h-64 bg-gray-50 rounded border border-gray-200"
-              style={{ maxHeight: '400px', overflow: 'auto' }}
+              className="flex items-center justify-center min-h-64 bg-gray-50 rounded"
+              style={{ maxHeight: '500px', overflow: 'auto' }}
             />
           </Card>
         </TabsContent>
@@ -278,13 +338,13 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
                       onClick={() => setSelectedColor(colorInfo.color)}
                     >
                       <div
-                        className="w-12 h-12 rounded border border-gray-300"
+                        className="w-12 h-12 rounded border border-gray-300 flex-shrink-0"
                         style={{ backgroundColor: colorInfo.color }}
                       />
-                      <div className="flex-1">
-                        <p className="font-mono font-semibold">{colorInfo.color}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {colorInfo.count} path{colorInfo.count !== 1 ? 's' : ''}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-mono font-semibold text-sm">{colorInfo.color}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {colorInfo.count} element{colorInfo.count !== 1 ? 's' : ''}
                         </p>
                       </div>
                       <Button
@@ -321,7 +381,7 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
                           type="text"
                           value={newColor}
                           onChange={(e) => setNewColor(e.target.value)}
-                          className="flex-1 font-mono"
+                          className="flex-1 font-mono text-sm"
                           placeholder="#000000"
                         />
                       </div>
@@ -332,14 +392,14 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
                         onClick={() => changeColor(selectedColor, newColor)}
                         className="flex-1"
                       >
-                        Change Selected Color
+                        Change Selected
                       </Button>
                       <Button
                         onClick={() => replaceAllColors(newColor)}
                         variant="outline"
                         className="flex-1"
                       >
-                        Change All Colors
+                        Change All
                       </Button>
                     </div>
                   </div>
