@@ -6,8 +6,43 @@
 import Stripe from 'stripe';
 import { ENV } from './_core/env';
 
-// Initialize Stripe with secret key
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+// Lazy initialization of Stripe client
+let stripeInstance: Stripe | null = null;
+
+function getStripeInstance(): Stripe {
+  if (!stripeInstance) {
+    const apiKey = process.env.STRIPE_SECRET_KEY;
+    if (!apiKey) {
+      throw new Error('STRIPE_SECRET_KEY environment variable is not set');
+    }
+    stripeInstance = new Stripe(apiKey);
+  }
+  return stripeInstance;
+}
+
+export const stripe = {
+  get customers() {
+    return getStripeInstance().customers;
+  },
+  get checkout() {
+    return getStripeInstance().checkout;
+  },
+  get paymentIntents() {
+    return getStripeInstance().paymentIntents;
+  },
+  get subscriptions() {
+    return getStripeInstance().subscriptions;
+  },
+  get paymentMethods() {
+    return getStripeInstance().paymentMethods;
+  },
+  get invoices() {
+    return getStripeInstance().invoices;
+  },
+  get webhooks() {
+    return getStripeInstance().webhooks;
+  },
+} as any;
 
 export interface CreateCheckoutSessionParams {
   userId: number;
