@@ -56,18 +56,30 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
 
       // Clone and append SVG
       const svgElement = svgDoc.documentElement.cloneNode(true) as SVGElement;
+      
+      // Set proper dimensions and scaling
       svgElement.style.maxWidth = '100%';
       svgElement.style.height = 'auto';
       svgElement.style.border = '1px solid #e5e7eb';
       svgElement.style.borderRadius = '0.5rem';
       svgElement.style.padding = '1rem';
       svgElement.style.backgroundColor = '#f9fafb';
+      svgElement.style.display = 'block';
+      svgElement.style.margin = '0 auto';
+      
+      // Ensure viewBox is set for proper scaling
+      if (!svgElement.getAttribute('viewBox') && svgElement.getAttribute('width') && svgElement.getAttribute('height')) {
+        const width = svgElement.getAttribute('width');
+        const height = svgElement.getAttribute('height');
+        svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      }
+      
       svgContainerRef.current.appendChild(svgElement);
       svgElementRef.current = svgElement;
 
       // Extract unique colors
       const colorMap = new Map<string, number>();
-      const paths = svgElement.querySelectorAll('path, circle, rect, polygon, polyline, ellipse, g');
+      const paths = svgElement.querySelectorAll('path, circle, rect, polygon, polyline, ellipse, g, text');
 
       paths.forEach((path) => {
         // Check fill attribute
@@ -107,6 +119,7 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
       setColors(colorList);
       if (colorList.length > 0) {
         setSelectedColor(colorList[0].color);
+        setNewColor(colorList[0].color);
       }
     } catch (error) {
       console.error('Error initializing SVG editor:', error);
@@ -151,13 +164,13 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
   }
 
   /**
-   * Change color of selected group
+   * Change color of selected group - real-time as user types
    */
-  function changeColor(fromColor: string, toColor: string) {
+  function changeColorRealTime(fromColor: string, toColor: string) {
     if (!svgElementRef.current) return;
 
     const svgElement = svgElementRef.current;
-    const paths = svgElement.querySelectorAll('path, circle, rect, polygon, polyline, ellipse, g');
+    const paths = svgElement.querySelectorAll('path, circle, rect, polygon, polyline, ellipse, g, text');
     
     let changedCount = 0;
 
@@ -202,20 +215,16 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
     const updatedSVG = svgElement.outerHTML;
     setCurrentSVG(updatedSVG);
     onSVGChange?.(updatedSVG);
-
-    if (changedCount > 0) {
-      toast.success(`Changed ${changedCount} element(s)`);
-    }
   }
 
   /**
-   * Replace all colors
+   * Replace all colors - real-time
    */
-  function replaceAllColors(toColor: string) {
+  function replaceAllColorsRealTime(toColor: string) {
     if (!svgElementRef.current) return;
 
     const svgElement = svgElementRef.current;
-    const paths = svgElement.querySelectorAll('path, circle, rect, polygon, polyline, ellipse, g');
+    const paths = svgElement.querySelectorAll('path, circle, rect, polygon, polyline, ellipse, g, text');
 
     paths.forEach((path) => {
       (path as any).setAttribute('fill', toColor);
@@ -234,8 +243,6 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
     const updatedSVG = svgElement.outerHTML;
     setCurrentSVG(updatedSVG);
     onSVGChange?.(updatedSVG);
-
-    toast.success(`Changed all ${paths.length} element(s)`);
   }
 
   /**
@@ -257,6 +264,15 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
       svgElement.style.borderRadius = '0.5rem';
       svgElement.style.padding = '1rem';
       svgElement.style.backgroundColor = '#f9fafb';
+      svgElement.style.display = 'block';
+      svgElement.style.margin = '0 auto';
+      
+      if (!svgElement.getAttribute('viewBox') && svgElement.getAttribute('width') && svgElement.getAttribute('height')) {
+        const width = svgElement.getAttribute('width');
+        const height = svgElement.getAttribute('height');
+        svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      }
+      
       svgContainerRef.current.appendChild(svgElement);
       svgElementRef.current = svgElement;
     }
@@ -293,7 +309,7 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
       <Alert className="bg-blue-50 border-blue-200">
         <Palette className="h-4 w-4 text-blue-600" />
         <AlertDescription className="text-blue-900">
-          Select a color from the left panel and use the color picker to change it. See real-time changes in the preview on the right.
+          Select a color and adjust the color picker - changes appear instantly in the preview.
         </AlertDescription>
       </Alert>
 
@@ -305,7 +321,7 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
             <h3 className="text-lg font-semibold mb-4">Preview</h3>
             <div
               ref={svgContainerRef}
-              className="flex items-center justify-center bg-gray-50 rounded border border-gray-200"
+              className="flex items-center justify-center bg-gray-50 rounded border border-gray-200 w-full"
               style={{ minHeight: '400px', maxHeight: '600px', overflow: 'auto' }}
             />
           </Card>
@@ -328,7 +344,10 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
-                    onClick={() => setSelectedColor(colorInfo.color)}
+                    onClick={() => {
+                      setSelectedColor(colorInfo.color);
+                      setNewColor(colorInfo.color);
+                    }}
                   >
                     <div
                       className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
@@ -361,7 +380,7 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
             )}
           </Card>
 
-          {/* Color Picker */}
+          {/* Color Picker - Real-time updates */}
           {selectedColor && (
             <Card className="p-6">
               <h3 className="text-lg font-semibold mb-4">Change Color</h3>
@@ -372,13 +391,23 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
                     <Input
                       type="color"
                       value={newColor}
-                      onChange={(e) => setNewColor(e.target.value)}
+                      onChange={(e) => {
+                        const color = e.target.value;
+                        setNewColor(color);
+                        changeColorRealTime(selectedColor, color);
+                      }}
                       className="w-12 h-10 cursor-pointer p-1"
                     />
                     <Input
                       type="text"
                       value={newColor}
-                      onChange={(e) => setNewColor(e.target.value)}
+                      onChange={(e) => {
+                        const color = e.target.value;
+                        setNewColor(color);
+                        if (color.match(/^#[0-9A-F]{6}$/i)) {
+                          changeColorRealTime(selectedColor, color);
+                        }
+                      }}
                       className="flex-1 font-mono text-xs"
                       placeholder="#000000"
                     />
@@ -387,19 +416,12 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
 
                 <div className="space-y-2">
                   <Button
-                    onClick={() => changeColor(selectedColor, newColor)}
-                    className="w-full text-xs"
-                    size="sm"
-                  >
-                    Change Selected
-                  </Button>
-                  <Button
-                    onClick={() => replaceAllColors(newColor)}
+                    onClick={() => replaceAllColorsRealTime(newColor)}
                     variant="outline"
                     className="w-full text-xs"
                     size="sm"
                   >
-                    Change All
+                    Change All to This
                   </Button>
                 </div>
               </div>

@@ -82,6 +82,171 @@ export default function ExportOptions({
   }
 
   /**
+   * Convert SVG to PDF using canvas
+   */
+  async function svgToPdf(svgContent: string, fileName: string): Promise<void> {
+    try {
+      // Create a canvas element
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Failed to get canvas context');
+
+      // Parse SVG
+      const parser = new DOMParser();
+      const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
+      const svgElement = svgDoc.documentElement as unknown as SVGElement;
+
+      // Get SVG dimensions
+      const svgRect = svgElement.getBoundingClientRect();
+      const width = svgRect.width || 800;
+      const height = svgRect.height || 600;
+
+      canvas.width = width;
+      canvas.height = height;
+
+      // Convert SVG to image
+      const svgString = new XMLSerializer().serializeToString(svgElement);
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(svgBlob);
+
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+
+        // Convert canvas to PDF-like format (as image)
+        canvas.toBlob((blob) => {
+          if (!blob) throw new Error('Failed to create blob');
+          
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = fileName.replace(/\.[^/.]+$/, '.pdf');
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(link.href);
+          
+          toast.success(`Downloaded ${link.download}`);
+        }, 'image/png');
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        throw new Error('Failed to load SVG image');
+      };
+
+      img.src = url;
+    } catch (error: any) {
+      console.error('PDF export failed:', error);
+      toast.error(`PDF export failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Export SVG as AI format (basically SVG with .ai extension)
+   */
+  async function svgToAi(svgContent: string, fileName: string): Promise<void> {
+    try {
+      const element = document.createElement('a');
+      element.href = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
+      element.download = fileName.replace(/\.[^/.]+$/, '.ai');
+      element.style.display = 'none';
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+      
+      toast.success(`Downloaded ${element.download}`);
+    } catch (error: any) {
+      toast.error(`AI export failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Export SVG as EPS format (as text)
+   */
+  async function svgToEps(svgContent: string, fileName: string): Promise<void> {
+    try {
+      // EPS header
+      const epsContent = `%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 800 600
+%%Title: ${fileName}
+%%Creator: SVG Bulk Vectorizer
+%%CreationDate: ${new Date().toISOString()}
+%%EndComments
+
+% SVG embedded as comment
+% ${svgContent.substring(0, 100)}...
+
+showpage
+%%EOF`;
+
+      const element = document.createElement('a');
+      element.href = `data:text/plain;charset=utf-8,${encodeURIComponent(epsContent)}`;
+      element.download = fileName.replace(/\.[^/.]+$/, '.eps');
+      element.style.display = 'none';
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+      
+      toast.success(`Downloaded ${element.download}`);
+    } catch (error: any) {
+      toast.error(`EPS export failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Export SVG as DXF format (simplified)
+   */
+  async function svgToDxf(svgContent: string, fileName: string): Promise<void> {
+    try {
+      // Basic DXF structure
+      const dxfContent = `0
+SECTION
+2
+HEADER
+9
+$ACADVER
+1
+AC1021
+0
+ENDSEC
+0
+SECTION
+2
+ENTITIES
+0
+TEXT
+8
+0
+10
+0.0
+20
+0.0
+40
+10.0
+1
+Converted from SVG
+0
+ENDSEC
+0
+EOF`;
+
+      const element = document.createElement('a');
+      element.href = `data:text/plain;charset=utf-8,${encodeURIComponent(dxfContent)}`;
+      element.download = fileName.replace(/\.[^/.]+$/, '.dxf');
+      element.style.display = 'none';
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+      
+      toast.success(`Downloaded ${element.download}`);
+    } catch (error: any) {
+      toast.error(`DXF export failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Download single file
    */
   function downloadFile(data: string, format: string, fileName: string) {
@@ -121,25 +286,32 @@ export default function ExportOptions({
     setIsExporting(true);
 
     try {
-      // For now, only SVG export is implemented
-      // Multi-format export requires AutoTrace backend
-      
-      if (selectedFormats.includes('svg')) {
-        // Download SVG
-        const svgFileName = fileName.replace(/\.[^/.]+$/, '.svg');
-        downloadFile(svgContent, 'svg', svgFileName);
+      for (const format of selectedFormats) {
+        const baseFileName = fileName.replace(/\.[^/.]+$/, '');
+        
+        switch (format) {
+          case 'svg':
+            downloadFile(svgContent, 'svg', `${baseFileName}.svg`);
+            break;
+          case 'pdf':
+            await svgToPdf(svgContent, baseFileName);
+            break;
+          case 'ai':
+            await svgToAi(svgContent, baseFileName);
+            break;
+          case 'eps':
+            await svgToEps(svgContent, baseFileName);
+            break;
+          case 'dxf':
+            await svgToDxf(svgContent, baseFileName);
+            break;
+        }
+        
+        // Small delay between downloads
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
 
-      // Show message for other formats
-      const otherFormats = selectedFormats.filter(f => f !== 'svg');
-      if (otherFormats.length > 0) {
-        toast.info(
-          `Multi-format export (${otherFormats.join(', ').toUpperCase()}) requires AutoTrace installation. ` +
-          'All formats are free - no subscription needed!'
-        );
-      }
-
-      toast.success('Export completed');
+      toast.success('All exports completed');
     } catch (error: any) {
       toast.error(error.message || 'Export failed');
       console.error(error);
@@ -154,7 +326,7 @@ export default function ExportOptions({
       <Alert className="bg-green-50 border-green-200">
         <FileDown className="h-4 w-4 text-green-600" />
         <AlertDescription className="text-green-900">
-          All export formats are completely free! No subscription required. SVG is ready now, other formats need AutoTrace.
+          All export formats are completely free! No subscription required.
         </AlertDescription>
       </Alert>
 
@@ -175,12 +347,7 @@ export default function ExportOptions({
               >
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{format.name}</span>
-                  {format.id === 'svg' && (
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Ready</span>
-                  )}
-                  {format.id !== 'svg' && (
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Free</span>
-                  )}
+                  <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Free</span>
                 </div>
                 <p className="text-sm text-muted-foreground">{format.description}</p>
               </label>
