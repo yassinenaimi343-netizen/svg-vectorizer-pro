@@ -40,7 +40,7 @@ interface BulkUploaderProps {
 }
 
 export default function BulkUploader({
-  maxFiles = 100,
+  maxFiles = 250,
   onFilesSelected,
   onConvertStart,
 }: BulkUploaderProps) {
