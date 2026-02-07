@@ -69,6 +69,74 @@ export default function ConversionResultsEnhanced({ results }: ConversionResults
   }
 
   /**
+   * Convert SVG to PDF using jsPDF
+   */
+  async function svgToPdf(svgString: string, fileName: string): Promise<Blob> {
+    try {
+      const { jsPDF } = await import('jspdf');
+      
+      // Parse SVG to get dimensions
+      const parser = new DOMParser();
+      const svgDoc = parser.parseFromString(svgString, 'image/svg+xml');
+      const svgElement = svgDoc.documentElement as unknown as SVGElement;
+      
+      // Get viewBox or width/height
+      const viewBox = svgElement.getAttribute('viewBox');
+      let width = 210; // A4 default
+      let height = 297;
+      
+      if (viewBox) {
+        const [, , vbWidth, vbHeight] = viewBox.split(/[\s,]+/).map(Number);
+        width = vbWidth || 210;
+        height = vbHeight || 297;
+      } else {
+        const w = svgElement.getAttribute('width');
+        const h = svgElement.getAttribute('height');
+        if (w) width = parseFloat(w);
+        if (h) height = parseFloat(h);
+      }
+      
+      // Convert SVG to image
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      const svgData = new XMLSerializer().serializeToString(svgElement);
+      const img = new Image();
+      
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to load SVG'));
+        img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+      });
+      
+      // Set canvas size
+      canvas.width = img.width || width * 2;
+      canvas.height = img.height || height * 2;
+      
+      // Draw image to canvas
+      ctx?.drawImage(img, 0, 0);
+      
+      // Create PDF
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'l' : 'p',
+        unit: 'mm',
+        format: [width, height],
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      
+      return pdf.output('blob');
+    } catch (error) {
+      console.error('Error converting SVG to PDF:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Download all SVGs as ZIP
    */
   async function downloadAllAsZIP() {
@@ -148,59 +216,43 @@ export default function ConversionResultsEnhanced({ results }: ConversionResults
 
         let fileContent: string | Blob;
         let fileName: string;
-        let mimeType: string;
 
         switch (selectedExportFormat) {
           case 'svg':
             fileContent = svg;
             fileName = `${baseName}.svg`;
-            mimeType = 'image/svg+xml';
             break;
 
           case 'pdf': {
-            // Convert SVG to canvas then to PDF
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const svg_element = new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement;
-            const svgData = new XMLSerializer().serializeToString(svg_element);
-            const img = new Image();
-            
-            await new Promise((resolve) => {
-              img.onload = resolve;
-              img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
-            });
-
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx?.drawImage(img, 0, 0);
-            fileContent = canvas.toDataURL('image/png');
-            fileName = `${baseName}.pdf`;
-            mimeType = 'application/pdf';
+            try {
+              fileContent = await svgToPdf(svg, baseName);
+              fileName = `${baseName}.pdf`;
+            } catch (error) {
+              console.error('Error converting to PDF:', error);
+              toast.error(`Failed to convert ${baseName} to PDF`);
+              continue;
+            }
             break;
           }
 
           case 'ai':
             fileContent = svg;
             fileName = `${baseName}.ai`;
-            mimeType = 'application/postscript';
             break;
 
           case 'eps':
             fileContent = svg;
             fileName = `${baseName}.eps`;
-            mimeType = 'application/postscript';
             break;
 
           case 'dxf':
             fileContent = svg;
             fileName = `${baseName}.dxf`;
-            mimeType = 'application/dxf';
             break;
 
           default:
             fileContent = svg;
             fileName = `${baseName}.svg`;
-            mimeType = 'image/svg+xml';
         }
 
         zip.file(fileName, fileContent);
