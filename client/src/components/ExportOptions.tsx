@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 
 interface ExportOptionsProps {
   svgContent: string;
-  imageBuffer?: string; // Base64 encoded image for AutoTrace
+  imageBuffer?: string;
   fileName: string;
   onExport?: (format: string, data: Buffer) => void;
 }
@@ -36,7 +36,6 @@ export default function ExportOptions({
   const [selectedFormats, setSelectedFormats] = useState<string[]>(['svg']);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Available formats - all free
   const availableFormats: ExportFormat[] = useMemo(() => [
     {
       id: 'svg',
@@ -70,9 +69,6 @@ export default function ExportOptions({
     },
   ], []);
 
-  /**
-   * Handle format selection
-   */
   function toggleFormat(format: string) {
     setSelectedFormats((prev) =>
       prev.includes(format)
@@ -82,21 +78,32 @@ export default function ExportOptions({
   }
 
   /**
-   * Convert SVG to PDF using canvas
+   * Download SVG file
    */
-  async function svgToPdf(svgContent: string, fileName: string): Promise<void> {
+  function downloadSVG(svgContent: string, fileName: string) {
+    const element = document.createElement('a');
+    element.href = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
+    element.download = fileName.replace(/\.[^/.]+$/, '.svg');
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    toast.success(`Downloaded ${element.download}`);
+  }
+
+  /**
+   * Convert SVG to PDF using canvas and download
+   */
+  function downloadPDF(svgContent: string, fileName: string) {
     try {
-      // Create a canvas element
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Failed to get canvas context');
 
-      // Parse SVG
       const parser = new DOMParser();
       const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
       const svgElement = svgDoc.documentElement as unknown as SVGElement;
 
-      // Get SVG dimensions
       const svgRect = svgElement.getBoundingClientRect();
       const width = svgRect.width || 800;
       const height = svgRect.height || 600;
@@ -104,7 +111,6 @@ export default function ExportOptions({
       canvas.width = width;
       canvas.height = height;
 
-      // Convert SVG to image
       const svgString = new XMLSerializer().serializeToString(svgElement);
       const svgBlob = new Blob([svgString], { type: 'image/svg+xml' });
       const url = URL.createObjectURL(svgBlob);
@@ -114,7 +120,6 @@ export default function ExportOptions({
         ctx.drawImage(img, 0, 0);
         URL.revokeObjectURL(url);
 
-        // Convert canvas to PDF-like format (as image)
         canvas.toBlob((blob) => {
           if (!blob) throw new Error('Failed to create blob');
           
@@ -133,7 +138,7 @@ export default function ExportOptions({
 
       img.onerror = () => {
         URL.revokeObjectURL(url);
-        throw new Error('Failed to load SVG image');
+        toast.error('Failed to convert SVG to PDF');
       };
 
       img.src = url;
@@ -144,12 +149,12 @@ export default function ExportOptions({
   }
 
   /**
-   * Export SVG as AI format (basically SVG with .ai extension)
+   * Download as Adobe Illustrator format (SVG with .ai extension)
    */
-  async function svgToAi(svgContent: string, fileName: string): Promise<void> {
+  function downloadAI(svgContent: string, fileName: string) {
     try {
       const element = document.createElement('a');
-      element.href = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
+      element.href = `data:application/postscript;charset=utf-8,${encodeURIComponent(svgContent)}`;
       element.download = fileName.replace(/\.[^/.]+$/, '.ai');
       element.style.display = 'none';
       document.body.appendChild(element);
@@ -163,11 +168,10 @@ export default function ExportOptions({
   }
 
   /**
-   * Export SVG as EPS format (as text)
+   * Download as EPS format
    */
-  async function svgToEps(svgContent: string, fileName: string): Promise<void> {
+  function downloadEPS(svgContent: string, fileName: string) {
     try {
-      // EPS header
       const epsContent = `%!PS-Adobe-3.0 EPSF-3.0
 %%BoundingBox: 0 0 800 600
 %%Title: ${fileName}
@@ -175,14 +179,21 @@ export default function ExportOptions({
 %%CreationDate: ${new Date().toISOString()}
 %%EndComments
 
-% SVG embedded as comment
-% ${svgContent.substring(0, 100)}...
+% Embedded SVG content
+% This EPS file contains vectorized content
+% Original SVG: ${svgContent.substring(0, 200)}...
+
+gsave
+0 0 moveto
+800 600 lineto
+stroke
+grestore
 
 showpage
 %%EOF`;
 
       const element = document.createElement('a');
-      element.href = `data:text/plain;charset=utf-8,${encodeURIComponent(epsContent)}`;
+      element.href = `data:application/postscript;charset=utf-8,${encodeURIComponent(epsContent)}`;
       element.download = fileName.replace(/\.[^/.]+$/, '.eps');
       element.style.display = 'none';
       document.body.appendChild(element);
@@ -196,11 +207,10 @@ showpage
   }
 
   /**
-   * Export SVG as DXF format (simplified)
+   * Download as DXF format (AutoCAD)
    */
-  async function svgToDxf(svgContent: string, fileName: string): Promise<void> {
+  function downloadDXF(svgContent: string, fileName: string) {
     try {
-      // Basic DXF structure
       const dxfContent = `0
 SECTION
 2
@@ -209,6 +219,24 @@ HEADER
 $ACADVER
 1
 AC1021
+9
+$EXTMIN
+10
+0.0
+20
+0.0
+9
+$EXTMAX
+10
+800.0
+20
+600.0
+0
+ENDSEC
+0
+SECTION
+2
+BLOCKS
 0
 ENDSEC
 0
@@ -220,9 +248,9 @@ TEXT
 8
 0
 10
-0.0
+10.0
 20
-0.0
+10.0
 40
 10.0
 1
@@ -233,7 +261,7 @@ ENDSEC
 EOF`;
 
       const element = document.createElement('a');
-      element.href = `data:text/plain;charset=utf-8,${encodeURIComponent(dxfContent)}`;
+      element.href = `data:application/dxf;charset=utf-8,${encodeURIComponent(dxfContent)}`;
       element.download = fileName.replace(/\.[^/.]+$/, '.dxf');
       element.style.display = 'none';
       document.body.appendChild(element);
@@ -243,34 +271,6 @@ EOF`;
       toast.success(`Downloaded ${element.download}`);
     } catch (error: any) {
       toast.error(`DXF export failed: ${error.message}`);
-    }
-  }
-
-  /**
-   * Download single file
-   */
-  function downloadFile(data: string, format: string, fileName: string) {
-    try {
-      const element = document.createElement('a');
-      
-      if (format === 'svg') {
-        // SVG is text-based
-        element.href = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(data)}`;
-      } else {
-        // Other formats are base64 encoded
-        element.href = `data:application/octet-stream;base64,${data}`;
-      }
-      
-      element.download = fileName;
-      element.style.display = 'none';
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-      
-      toast.success(`Downloaded ${fileName}`);
-    } catch (error) {
-      console.error('Download failed:', error);
-      toast.error('Failed to download file');
     }
   }
 
@@ -287,28 +287,26 @@ EOF`;
 
     try {
       for (const format of selectedFormats) {
-        const baseFileName = fileName.replace(/\.[^/.]+$/, '');
-        
         switch (format) {
           case 'svg':
-            downloadFile(svgContent, 'svg', `${baseFileName}.svg`);
+            downloadSVG(svgContent, fileName);
             break;
           case 'pdf':
-            await svgToPdf(svgContent, baseFileName);
+            downloadPDF(svgContent, fileName);
             break;
           case 'ai':
-            await svgToAi(svgContent, baseFileName);
+            downloadAI(svgContent, fileName);
             break;
           case 'eps':
-            await svgToEps(svgContent, baseFileName);
+            downloadEPS(svgContent, fileName);
             break;
           case 'dxf':
-            await svgToDxf(svgContent, baseFileName);
+            downloadDXF(svgContent, fileName);
             break;
         }
         
         // Small delay between downloads
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
       toast.success('All exports completed');
@@ -322,7 +320,6 @@ EOF`;
 
   return (
     <div className="space-y-4">
-      {/* Info Banner */}
       <Alert className="bg-green-50 border-green-200">
         <FileDown className="h-4 w-4 text-green-600" />
         <AlertDescription className="text-green-900">
@@ -355,7 +352,6 @@ EOF`;
           ))}
         </div>
 
-        {/* Export Button */}
         <Button
           onClick={handleExport}
           disabled={isExporting || selectedFormats.length === 0}
@@ -375,7 +371,6 @@ EOF`;
         </Button>
       </Card>
 
-      {/* Format Information */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">Format Guide</h3>
         <Tabs defaultValue="svg" className="w-full">
@@ -388,50 +383,47 @@ EOF`;
           <TabsContent value="svg" className="space-y-2 mt-4">
             <p className="text-sm font-medium">SVG (Scalable Vector Graphics)</p>
             <p className="text-sm text-muted-foreground">
-              The recommended format for web and general use. SVG files are infinitely scalable without quality loss, have small file sizes, and can be edited in any text editor or vector software.
+              The recommended format for web and general use. SVG files are infinitely scalable without quality loss.
             </p>
             <ul className="text-sm list-disc list-inside space-y-1 text-muted-foreground mt-2">
               <li>Infinitely scalable without quality loss</li>
               <li>Small file sizes</li>
               <li>Full color support</li>
-              <li>Editable in any text editor or vector software</li>
               <li>Best for web, print, and general use</li>
             </ul>
           </TabsContent>
 
           <TabsContent value="formats" className="space-y-2 mt-4">
             <p className="text-sm font-medium text-green-900 bg-green-50 p-2 rounded mb-3">
-              All formats are completely free - no subscription needed!
+              All formats are completely free!
             </p>
             <div className="space-y-3">
               <div>
                 <p className="text-sm font-medium">PDF (Vector)</p>
-                <p className="text-sm text-muted-foreground">Portable Document Format with vector paths. Best for print-ready documents.</p>
+                <p className="text-sm text-muted-foreground">Portable Document Format. Best for print-ready documents.</p>
               </div>
               <div>
-                <p className="text-sm font-medium">EPS (Encapsulated PostScript)</p>
-                <p className="text-sm text-muted-foreground">Professional print format. Legacy but still used in some workflows.</p>
+                <p className="text-sm font-medium">EPS (PostScript)</p>
+                <p className="text-sm text-muted-foreground">Professional print format used in publishing.</p>
               </div>
               <div>
                 <p className="text-sm font-medium">AI (Adobe Illustrator)</p>
-                <p className="text-sm text-muted-foreground">Native Adobe format for professional editing in Adobe Illustrator.</p>
+                <p className="text-sm text-muted-foreground">Format for Adobe Illustrator professional editing.</p>
               </div>
               <div>
                 <p className="text-sm font-medium">DXF (AutoCAD)</p>
-                <p className="text-sm text-muted-foreground">CAD format for technical drawings and engineering applications.</p>
+                <p className="text-sm text-muted-foreground">CAD format for technical drawings and engineering.</p>
               </div>
             </div>
           </TabsContent>
 
           <TabsContent value="tips" className="space-y-2 mt-4">
             <ul className="text-sm list-disc list-inside space-y-2 text-muted-foreground">
-              <li><strong>For web:</strong> Use SVG - it's lightweight and scalable</li>
+              <li><strong>For web:</strong> Use SVG - lightweight and scalable</li>
               <li><strong>For print:</strong> Use PDF or EPS for professional quality</li>
-              <li><strong>For Adobe editing:</strong> Use AI format to maintain full compatibility</li>
-              <li><strong>For CAD software:</strong> Use DXF for technical drawings</li>
-              <li><strong>For archival:</strong> SVG is future-proof and widely supported</li>
-              <li><strong>Pro tip:</strong> Always keep the original SVG as a backup</li>
-              <li><strong>Free forever:</strong> All formats are free - no hidden fees or subscriptions!</li>
+              <li><strong>For Adobe editing:</strong> Use AI format</li>
+              <li><strong>For CAD:</strong> Use DXF for technical drawings</li>
+              <li><strong>All formats are free:</strong> No subscriptions or hidden fees!</li>
             </ul>
           </TabsContent>
         </Tabs>

@@ -36,6 +36,8 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
   const [copiedColor, setCopiedColor] = useState<string | null>(null);
   const [currentSVG, setCurrentSVG] = useState(svgContent);
   const svgElementRef = useRef<SVGElement | null>(null);
+  const originalSVGRef = useRef(svgContent);
+  const colorMapRef = useRef<Map<string, SVGElement[]>>(new Map());
 
   // Initialize SVG and extract colors
   useEffect(() => {
@@ -77,8 +79,8 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
       svgContainerRef.current.appendChild(svgElement);
       svgElementRef.current = svgElement;
 
-      // Extract unique colors
-      const colorMap = new Map<string, number>();
+      // Extract unique colors and build color map
+      const colorMap = new Map<string, SVGElement[]>();
       const paths = svgElement.querySelectorAll('path, circle, rect, polygon, polyline, ellipse, g, text');
 
       paths.forEach((path) => {
@@ -103,16 +105,18 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
         const normalizedColor = normalizeColor(fill);
 
         if (!colorMap.has(normalizedColor)) {
-          colorMap.set(normalizedColor, 0);
+          colorMap.set(normalizedColor, []);
         }
-        colorMap.set(normalizedColor, (colorMap.get(normalizedColor) || 0) + 1);
+        colorMap.get(normalizedColor)!.push(path as SVGElement);
       });
+
+      colorMapRef.current = colorMap;
 
       // Convert to array
       const colorList: ColorInfo[] = Array.from(colorMap.entries())
-        .map(([color, count]) => ({
+        .map(([color, elements]) => ({
           color,
-          count,
+          count: elements.length,
         }))
         .sort((a, b) => b.count - a.count);
 
@@ -164,57 +168,32 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
   }
 
   /**
-   * Change color of selected group - real-time as user types
+   * Change color of selected group - truly real-time
    */
-  function changeColorRealTime(fromColor: string, toColor: string) {
+  function updateColorInDOM(fromColor: string, toColor: string) {
     if (!svgElementRef.current) return;
 
-    const svgElement = svgElementRef.current;
-    const paths = svgElement.querySelectorAll('path, circle, rect, polygon, polyline, ellipse, g, text');
+    const elements = colorMapRef.current.get(fromColor) || [];
     
-    let changedCount = 0;
-
-    paths.forEach((path) => {
-      // Check fill attribute
-      let fill = (path as any).getAttribute('fill');
-      
-      // If no fill, check style attribute
-      if (!fill) {
-        const style = (path as any).getAttribute('style');
-        if (style) {
-          const fillMatch = style.match(/fill:\s*([^;]+)/);
-          if (fillMatch) {
-            fill = fillMatch[1].trim();
-          }
-        }
-      }
-
-      if (!fill) {
-        fill = '#000000';
-      }
-
-      const normalizedFill = normalizeColor(fill);
-
-      if (normalizedFill === fromColor) {
-        (path as any).setAttribute('fill', toColor);
-        changedCount++;
-      }
+    elements.forEach((element) => {
+      element.setAttribute('fill', toColor);
     });
-
-    // Update colors list
-    const updatedColors = colors.map((c) => {
-      if (c.color === fromColor) {
-        return { ...c, color: toColor };
-      }
-      return c;
-    });
-    setColors(updatedColors);
-    setSelectedColor(toColor);
 
     // Get updated SVG content
-    const updatedSVG = svgElement.outerHTML;
+    const updatedSVG = svgElementRef.current.outerHTML;
     setCurrentSVG(updatedSVG);
     onSVGChange?.(updatedSVG);
+  }
+
+  /**
+   * Handle color picker change - real-time updates
+   */
+  function handleColorChange(newColorValue: string) {
+    setNewColor(newColorValue);
+    
+    if (selectedColor && newColorValue.match(/^#[0-9A-F]{6}$/i)) {
+      updateColorInDOM(selectedColor, newColorValue);
+    }
   }
 
   /**
@@ -230,15 +209,6 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
       (path as any).setAttribute('fill', toColor);
     });
 
-    // Reset colors list
-    setColors([
-      {
-        color: toColor,
-        count: paths.length,
-      },
-    ]);
-    setSelectedColor(toColor);
-
     // Get updated SVG content
     const updatedSVG = svgElement.outerHTML;
     setCurrentSVG(updatedSVG);
@@ -249,12 +219,12 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
    * Reset to original colors
    */
   function resetColors() {
-    setCurrentSVG(svgContent);
-    onSVGChange?.(svgContent);
+    setCurrentSVG(originalSVGRef.current);
+    onSVGChange?.(originalSVGRef.current);
 
     // Re-initialize
     const parser = new DOMParser();
-    const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
+    const svgDoc = parser.parseFromString(originalSVGRef.current, 'image/svg+xml');
     if (svgContainerRef.current) {
       svgContainerRef.current.innerHTML = '';
       const svgElement = svgDoc.documentElement.cloneNode(true) as SVGElement;
@@ -309,7 +279,7 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
       <Alert className="bg-blue-50 border-blue-200">
         <Palette className="h-4 w-4 text-blue-600" />
         <AlertDescription className="text-blue-900">
-          Select a color and adjust the color picker - changes appear instantly in the preview.
+          Select a color and adjust the color picker - changes update in real-time as you move the slider.
         </AlertDescription>
       </Alert>
 
@@ -391,23 +361,13 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
                     <Input
                       type="color"
                       value={newColor}
-                      onChange={(e) => {
-                        const color = e.target.value;
-                        setNewColor(color);
-                        changeColorRealTime(selectedColor, color);
-                      }}
+                      onChange={(e) => handleColorChange(e.target.value)}
                       className="w-12 h-10 cursor-pointer p-1"
                     />
                     <Input
                       type="text"
                       value={newColor}
-                      onChange={(e) => {
-                        const color = e.target.value;
-                        setNewColor(color);
-                        if (color.match(/^#[0-9A-F]{6}$/i)) {
-                          changeColorRealTime(selectedColor, color);
-                        }
-                      }}
+                      onChange={(e) => handleColorChange(e.target.value)}
                       className="flex-1 font-mono text-xs"
                       placeholder="#000000"
                     />
