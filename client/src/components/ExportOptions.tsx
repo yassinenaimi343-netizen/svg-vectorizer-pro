@@ -1,6 +1,6 @@
 /**
  * Export Options Component
- * Multi-format export with feature gating
+ * Multi-format export - all formats free
  * Based on SVGcode by Google LLC (GPL-2.0)
  */
 
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, Lock, Zap, AlertCircle, FileDown } from 'lucide-react';
+import { Download, Zap, AlertCircle, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ExportOptionsProps {
@@ -24,7 +24,6 @@ interface ExportFormat {
   id: string;
   name: string;
   available: boolean;
-  requiresPro: boolean;
   description: string;
 }
 
@@ -37,41 +36,36 @@ export default function ExportOptions({
   const [selectedFormats, setSelectedFormats] = useState<string[]>(['svg']);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Available formats - SVG is always available, others require Pro
+  // Available formats - all free
   const availableFormats: ExportFormat[] = useMemo(() => [
     {
       id: 'svg',
       name: 'SVG (Vector)',
       available: true,
-      requiresPro: false,
       description: 'Scalable Vector Graphics - best quality for web',
     },
     {
       id: 'pdf',
       name: 'PDF (Vector)',
       available: true,
-      requiresPro: true,
       description: 'Portable Document Format - professional print',
     },
     {
       id: 'eps',
       name: 'EPS (PostScript)',
       available: true,
-      requiresPro: true,
       description: 'Encapsulated PostScript - professional print',
     },
     {
       id: 'ai',
       name: 'Adobe Illustrator',
       available: true,
-      requiresPro: true,
       description: 'Native Adobe format for professional editing',
     },
     {
       id: 'dxf',
       name: 'AutoCAD DXF',
       available: true,
-      requiresPro: true,
       description: 'CAD format for technical drawings',
     },
   ], []);
@@ -136,12 +130,12 @@ export default function ExportOptions({
         downloadFile(svgContent, 'svg', svgFileName);
       }
 
-      // Show message for Pro formats
-      const proFormats = selectedFormats.filter(f => f !== 'svg');
-      if (proFormats.length > 0) {
+      // Show message for other formats
+      const otherFormats = selectedFormats.filter(f => f !== 'svg');
+      if (otherFormats.length > 0) {
         toast.info(
-          'Multi-format export (PDF, EPS, AI, DXF) requires AutoTrace installation on the server. ' +
-          'Contact support or configure AutoTrace to enable these formats.'
+          `Multi-format export (${otherFormats.join(', ').toUpperCase()}) requires AutoTrace installation. ` +
+          'All formats are free - no subscription needed!'
         );
       }
 
@@ -157,10 +151,10 @@ export default function ExportOptions({
   return (
     <div className="space-y-4">
       {/* Info Banner */}
-      <Alert className="bg-amber-50 border-amber-200">
-        <AlertCircle className="h-4 w-4 text-amber-600" />
-        <AlertDescription className="text-amber-900">
-          SVG export is always available. Multi-format export (PDF, EPS, AI, DXF) requires AutoTrace installation.
+      <Alert className="bg-green-50 border-green-200">
+        <FileDown className="h-4 w-4 text-green-600" />
+        <AlertDescription className="text-green-900">
+          All export formats are completely free! No subscription required. SVG is ready now, other formats need AutoTrace.
         </AlertDescription>
       </Alert>
 
@@ -174,7 +168,6 @@ export default function ExportOptions({
                 id={format.id}
                 checked={selectedFormats.includes(format.id)}
                 onCheckedChange={() => toggleFormat(format.id)}
-                disabled={format.requiresPro}
               />
               <label
                 htmlFor={format.id}
@@ -182,8 +175,11 @@ export default function ExportOptions({
               >
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{format.name}</span>
-                  {format.requiresPro && (
-                    <Lock className="w-4 h-4 text-amber-600" />
+                  {format.id === 'svg' && (
+                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Ready</span>
+                  )}
+                  {format.id !== 'svg' && (
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Free</span>
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground">{format.description}</p>
@@ -218,7 +214,7 @@ export default function ExportOptions({
         <Tabs defaultValue="svg" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="svg">SVG</TabsTrigger>
-            <TabsTrigger value="pro">Pro Formats</TabsTrigger>
+            <TabsTrigger value="formats">All Formats</TabsTrigger>
             <TabsTrigger value="tips">Tips</TabsTrigger>
           </TabsList>
 
@@ -236,11 +232,11 @@ export default function ExportOptions({
             </ul>
           </TabsContent>
 
-          <TabsContent value="pro" className="space-y-2 mt-4">
-            <p className="text-sm font-medium text-amber-900 bg-amber-50 p-2 rounded">
-              These formats require AutoTrace installation on the server
+          <TabsContent value="formats" className="space-y-2 mt-4">
+            <p className="text-sm font-medium text-green-900 bg-green-50 p-2 rounded mb-3">
+              All formats are completely free - no subscription needed!
             </p>
-            <div className="space-y-3 mt-3">
+            <div className="space-y-3">
               <div>
                 <p className="text-sm font-medium">PDF (Vector)</p>
                 <p className="text-sm text-muted-foreground">Portable Document Format with vector paths. Best for print-ready documents.</p>
@@ -268,6 +264,7 @@ export default function ExportOptions({
               <li><strong>For CAD software:</strong> Use DXF for technical drawings</li>
               <li><strong>For archival:</strong> SVG is future-proof and widely supported</li>
               <li><strong>Pro tip:</strong> Always keep the original SVG as a backup</li>
+              <li><strong>Free forever:</strong> All formats are free - no hidden fees or subscriptions!</li>
             </ul>
           </TabsContent>
         </Tabs>

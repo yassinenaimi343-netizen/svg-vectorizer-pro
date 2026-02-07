@@ -13,8 +13,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertCircle, Copy, Check, RotateCcw, Palette } from 'lucide-react';
+import { AlertCircle, Copy, Check, RotateCcw, Palette, Download } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 
@@ -294,146 +293,141 @@ export default function SVGColorEditor({ svgContent, fileName, onSVGChange }: SV
       <Alert className="bg-blue-50 border-blue-200">
         <Palette className="h-4 w-4 text-blue-600" />
         <AlertDescription className="text-blue-900">
-          Select a color from the palette and choose a new color. Changes apply in real-time to the preview.
+          Select a color from the left panel and use the color picker to change it. See real-time changes in the preview on the right.
         </AlertDescription>
       </Alert>
 
-      <Tabs defaultValue="preview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="preview">Preview</TabsTrigger>
-          <TabsTrigger value="colors">Colors</TabsTrigger>
-          <TabsTrigger value="code">SVG Code</TabsTrigger>
-        </TabsList>
-
-        {/* Preview Tab */}
-        <TabsContent value="preview" className="space-y-4">
+      {/* Main Layout: Preview on Left, Controls on Right */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Preview Column - Takes 2 columns on large screens */}
+        <div className="lg:col-span-2">
           <Card className="p-6 bg-white border-gray-200">
+            <h3 className="text-lg font-semibold mb-4">Preview</h3>
             <div
               ref={svgContainerRef}
-              className="flex items-center justify-center min-h-64 bg-gray-50 rounded"
-              style={{ maxHeight: '500px', overflow: 'auto' }}
+              className="flex items-center justify-center bg-gray-50 rounded border border-gray-200"
+              style={{ minHeight: '400px', maxHeight: '600px', overflow: 'auto' }}
             />
           </Card>
-        </TabsContent>
+        </div>
 
-        {/* Colors Tab */}
-        <TabsContent value="colors" className="space-y-4">
+        {/* Controls Column */}
+        <div className="space-y-4">
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Color Palette</h3>
+            <h3 className="text-lg font-semibold mb-4">Colors</h3>
 
             {colors.length === 0 ? (
-              <p className="text-muted-foreground">No colors found in SVG</p>
+              <p className="text-sm text-muted-foreground">No colors found</p>
             ) : (
-              <div className="space-y-4">
-                {/* Color List */}
-                <div className="space-y-2">
-                  {colors.map((colorInfo) => (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {colors.map((colorInfo) => (
+                  <div
+                    key={colorInfo.color}
+                    className={`flex items-center gap-2 p-2 rounded-lg border-2 cursor-pointer transition ${
+                      selectedColor === colorInfo.color
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedColor(colorInfo.color)}
+                  >
                     <div
-                      key={colorInfo.color}
-                      className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition ${
-                        selectedColor === colorInfo.color
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                      onClick={() => setSelectedColor(colorInfo.color)}
+                      className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
+                      style={{ backgroundColor: colorInfo.color }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-mono font-semibold text-xs">{colorInfo.color}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {colorInfo.count}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="p-1 h-auto"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyColor(colorInfo.color);
+                      }}
                     >
-                      <div
-                        className="w-12 h-12 rounded border border-gray-300 flex-shrink-0"
-                        style={{ backgroundColor: colorInfo.color }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-mono font-semibold text-sm">{colorInfo.color}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {colorInfo.count} element{colorInfo.count !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          copyColor(colorInfo.color);
-                        }}
-                      >
-                        {copiedColor === colorInfo.color ? (
-                          <Check className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Color Picker */}
-                {selectedColor && (
-                  <div className="border-t pt-4 space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">New Color</label>
-                      <div className="flex gap-2">
-                        <Input
-                          type="color"
-                          value={newColor}
-                          onChange={(e) => setNewColor(e.target.value)}
-                          className="w-16 h-10 cursor-pointer"
-                        />
-                        <Input
-                          type="text"
-                          value={newColor}
-                          onChange={(e) => setNewColor(e.target.value)}
-                          className="flex-1 font-mono text-sm"
-                          placeholder="#000000"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => changeColor(selectedColor, newColor)}
-                        className="flex-1"
-                      >
-                        Change Selected
-                      </Button>
-                      <Button
-                        onClick={() => replaceAllColors(newColor)}
-                        variant="outline"
-                        className="flex-1"
-                      >
-                        Change All
-                      </Button>
-                    </div>
+                      {copiedColor === colorInfo.color ? (
+                        <Check className="w-3 h-3 text-green-600" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                    </Button>
                   </div>
-                )}
-
-                {/* Reset Button */}
-                <Button
-                  onClick={resetColors}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Reset to Original
-                </Button>
+                ))}
               </div>
             )}
           </Card>
-        </TabsContent>
 
-        {/* SVG Code Tab */}
-        <TabsContent value="code" className="space-y-4">
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">SVG Source Code</h3>
-            <pre className="bg-gray-900 text-gray-100 p-4 rounded overflow-auto max-h-96 text-xs">
-              {currentSVG}
-            </pre>
-          </Card>
-        </TabsContent>
-      </Tabs>
+          {/* Color Picker */}
+          {selectedColor && (
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Change Color</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium mb-2">New Color</label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="color"
+                      value={newColor}
+                      onChange={(e) => setNewColor(e.target.value)}
+                      className="w-12 h-10 cursor-pointer p-1"
+                    />
+                    <Input
+                      type="text"
+                      value={newColor}
+                      onChange={(e) => setNewColor(e.target.value)}
+                      className="flex-1 font-mono text-xs"
+                      placeholder="#000000"
+                    />
+                  </div>
+                </div>
 
-      {/* Download Button */}
-      <Button onClick={downloadSVG} className="w-full">
-        Download Edited SVG
-      </Button>
+                <div className="space-y-2">
+                  <Button
+                    onClick={() => changeColor(selectedColor, newColor)}
+                    className="w-full text-xs"
+                    size="sm"
+                  >
+                    Change Selected
+                  </Button>
+                  <Button
+                    onClick={() => replaceAllColors(newColor)}
+                    variant="outline"
+                    className="w-full text-xs"
+                    size="sm"
+                  >
+                    Change All
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Action Buttons */}
+          <div className="space-y-2">
+            <Button
+              onClick={resetColors}
+              variant="outline"
+              className="w-full text-xs"
+              size="sm"
+            >
+              <RotateCcw className="w-3 h-3 mr-1" />
+              Reset
+            </Button>
+            <Button
+              onClick={downloadSVG}
+              className="w-full text-xs"
+              size="sm"
+            >
+              <Download className="w-3 h-3 mr-1" />
+              Download
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
