@@ -69,11 +69,12 @@ export default function ConversionResultsEnhanced({ results }: ConversionResults
   }
 
   /**
-   * Convert SVG to PDF using jsPDF
+   * Convert SVG to PDF using svg2pdf.js for vector quality
    */
   async function svgToPdf(svgString: string, fileName: string): Promise<Blob> {
     try {
       const { jsPDF } = await import('jspdf');
+      const svg2pdf = (await import('svg2pdf.js')) as any;
       
       // Parse SVG to get dimensions
       const parser = new DOMParser();
@@ -96,43 +97,58 @@ export default function ConversionResultsEnhanced({ results }: ConversionResults
         if (h) height = parseFloat(h);
       }
       
-      // Convert SVG to image
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      const svgData = new XMLSerializer().serializeToString(svgElement);
-      const img = new Image();
-      
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error('Failed to load SVG'));
-        img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
-      });
-      
-      // Set canvas size
-      canvas.width = img.width || width * 2;
-      canvas.height = img.height || height * 2;
-      
-      // Draw image to canvas
-      ctx?.drawImage(img, 0, 0);
-      
-      // Create PDF
+      // Create PDF with proper dimensions
       const pdf = new jsPDF({
-        orientation: canvas.width > canvas.height ? 'l' : 'p',
-        unit: 'mm',
+        orientation: width > height ? 'l' : 'p',
+        unit: 'px',
         format: [width, height],
       });
       
-      const imgData = canvas.toDataURL('image/png');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      // Use svg2pdf to convert SVG to PDF preserving vector quality
+      const svgToPdfFn = svg2pdf as any;
+      await svgToPdfFn.default(svgElement, pdf);
       
       return pdf.output('blob');
     } catch (error) {
       console.error('Error converting SVG to PDF:', error);
-      throw error;
+      // Fallback to canvas-based conversion if svg2pdf fails
+      try {
+        const { jsPDF } = await import('jspdf');
+        const parser = new DOMParser();
+        const svgDoc = parser.parseFromString(svgString, 'image/svg+xml');
+        const svgElement = svgDoc.documentElement as unknown as SVGElement;
+        
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const svgData = new XMLSerializer().serializeToString(svgElement);
+        const img = new Image();
+        
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error('Failed to load SVG'));
+          img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+        });
+        
+        canvas.width = img.width || 800;
+        canvas.height = img.height || 600;
+        ctx?.drawImage(img, 0, 0);
+        
+        const pdf = new jsPDF({
+          orientation: canvas.width > canvas.height ? 'l' : 'p',
+          unit: 'mm',
+          format: 'a4',
+        });
+        
+        const imgData = canvas.toDataURL('image/png');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        
+        return pdf.output('blob');
+      } catch (fallbackError) {
+        console.error('Fallback PDF conversion also failed:', fallbackError);
+        throw fallbackError;
+      }
     }
   }
 
