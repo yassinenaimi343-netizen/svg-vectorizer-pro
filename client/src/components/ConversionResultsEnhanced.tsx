@@ -620,7 +620,7 @@ export default function ConversionResultsEnhanced({ results }: ConversionResults
                       </div>
                     </div>
                     <div
-                      className="bg-gray-50 rounded border border-gray-200 p-4 flex items-center justify-center min-h-64"
+                      className="bg-slate-800 rounded border border-slate-700 p-4 flex items-center justify-center min-h-64"
                       dangerouslySetInnerHTML={{ __html: displaySVG }}
                     />
                   </TabsContent>

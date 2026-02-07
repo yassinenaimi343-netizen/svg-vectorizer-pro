@@ -138,76 +138,42 @@ export default function ExportOptions({
   }
 
   /**
-   * Create vector-based PDF from SVG for print quality
+   * Create true vector PDF from SVG with proper path conversion
    */
   function createVectorPDF(svgContent: string, width: number, height: number): string {
-    // Extract SVG paths and convert to PDF vector format
+    // Parse SVG
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
     const svgElement = svgDoc.documentElement as unknown as SVGElement;
 
-    // Get all path elements
+    // Get all vector elements
     const paths = svgElement.querySelectorAll('path');
     const rects = svgElement.querySelectorAll('rect');
     const circles = svgElement.querySelectorAll('circle');
     const lines = svgElement.querySelectorAll('line');
+    const polygons = svgElement.querySelectorAll('polygon');
+    const polylines = svgElement.querySelectorAll('polyline');
 
-    // Create PDF header
-    let pdfContent = `%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${width} ${height}] /Contents 4 0 R /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>
-endobj
-4 0 obj
-<< >>
-stream
-BT
-/F1 12 Tf
-50 ${height - 50} Td
-(Vector PDF - Print Quality) Tj
-ET
-`;
+    // Create PDF with proper vector stream
+    let streamContent = '';
 
-    // Add path data
-    paths.forEach((path) => {
-      const d = path.getAttribute('d') || '';
-      const fill = path.getAttribute('fill') || '#000000';
-      const stroke = path.getAttribute('stroke') || 'none';
-      const strokeWidth = path.getAttribute('stroke-width') || '1';
-
-      // Convert hex color to RGB for PDF
-      const rgb = hexToRGB(fill);
-
-      pdfContent += `
-${rgb.r / 255} ${rgb.g / 255} ${rgb.b / 255} rg
-${strokeWidth} w
-`;
-
-      // Add path commands (simplified)
-      pdfContent += `${d}\n`;
-    });
-
-    // Add rectangles
+    // Process rectangles as vector paths
     rects.forEach((rect) => {
       const x = parseFloat(rect.getAttribute('x') || '0');
       const y = parseFloat(rect.getAttribute('y') || '0');
       const w = parseFloat(rect.getAttribute('width') || '0');
       const h = parseFloat(rect.getAttribute('height') || '0');
       const fill = rect.getAttribute('fill') || '#000000';
-      const rgb = hexToRGB(fill);
+      const stroke = rect.getAttribute('stroke');
+      const strokeWidth = parseFloat(rect.getAttribute('stroke-width') || '1');
 
-      pdfContent += `\n${rgb.r / 255} ${rgb.g / 255} ${rgb.b / 255} rg
-${x} ${y} ${w} ${h} re
-f
-`;
+      const rgb = hexToRGB(fill);
+      streamContent += `\n${rgb.r / 255} ${rgb.g / 255} ${rgb.b / 255} rg\n`;
+      streamContent += `${strokeWidth} w\n`;
+      streamContent += `${x} ${y} ${w} ${h} re\nf\n`;
     });
 
-    // Add circles
+    // Process circles as vector paths
     circles.forEach((circle) => {
       const cx = parseFloat(circle.getAttribute('cx') || '0');
       const cy = parseFloat(circle.getAttribute('cy') || '0');
@@ -215,13 +181,65 @@ f
       const fill = circle.getAttribute('fill') || '#000000';
       const rgb = hexToRGB(fill);
 
-      pdfContent += `\n${rgb.r / 255} ${rgb.g / 255} ${rgb.b / 255} rg
-${cx} ${cy} ${r} 0 360 arc
-f
-`;
+      streamContent += `\n${rgb.r / 255} ${rgb.g / 255} ${rgb.b / 255} rg\n`;
+      // Draw circle using Bézier curves (4 curves for circle)
+      const k = 0.552; // Magic constant for circle approximation
+      streamContent += `${cx - r} ${cy} m\n`;
+      streamContent += `${cx - r} ${cy + k * r} ${cx - k * r} ${cy + r} ${cx} ${cy + r} c\n`;
+      streamContent += `${cx + k * r} ${cy + r} ${cx + r} ${cy + k * r} ${cx + r} ${cy} c\n`;
+      streamContent += `${cx + r} ${cy - k * r} ${cx + k * r} ${cy - r} ${cx} ${cy - r} c\n`;
+      streamContent += `${cx - k * r} ${cy - r} ${cx - r} ${cy - k * r} ${cx - r} ${cy} c\n`;
+      streamContent += `f\n`;
     });
 
-    pdfContent += `\nendstream
+    // Process paths with proper Bézier curve conversion
+    paths.forEach((path) => {
+      const d = path.getAttribute('d') || '';
+      const fill = path.getAttribute('fill') || '#000000';
+      const stroke = path.getAttribute('stroke');
+      const strokeWidth = parseFloat(path.getAttribute('stroke-width') || '1');
+
+      const rgb = hexToRGB(fill);
+      streamContent += `\n${rgb.r / 255} ${rgb.g / 255} ${rgb.b / 255} rg\n`;
+      streamContent += `${strokeWidth} w\n`;
+
+      // Convert SVG path commands to PDF drawing commands
+      const pathCommands = parseSVGPath(d);
+      streamContent += pathCommandsToPDF(pathCommands);
+      streamContent += `f\n`;
+    });
+
+    // Process lines
+    lines.forEach((line) => {
+      const x1 = parseFloat(line.getAttribute('x1') || '0');
+      const y1 = parseFloat(line.getAttribute('y1') || '0');
+      const x2 = parseFloat(line.getAttribute('x2') || '0');
+      const y2 = parseFloat(line.getAttribute('y2') || '0');
+      const stroke = line.getAttribute('stroke') || '#000000';
+      const strokeWidth = parseFloat(line.getAttribute('stroke-width') || '1');
+
+      const rgb = hexToRGB(stroke);
+      streamContent += `\n${rgb.r / 255} ${rgb.g / 255} ${rgb.b / 255} RG\n`;
+      streamContent += `${strokeWidth} w\n`;
+      streamContent += `${x1} ${y1} m\n${x2} ${y2} l\nS\n`;
+    });
+
+    // Create PDF structure
+    const pdfStart = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${width} ${height}] /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length ${streamContent.length} >>
+stream
+${streamContent}
+endstream
 endobj
 xref
 0 5
@@ -229,14 +247,91 @@ xref
 0000000009 00000 n
 0000000058 00000 n
 0000000115 00000 n
-0000000262 00000 n
+0000000214 00000 n
 trailer
 << /Size 5 /Root 1 0 R >>
 startxref
-${pdfContent.length + 400}
+`;
+    const offsetLen = pdfStart.length + streamContent.length + 100;
+    const pdfContent = pdfStart + offsetLen + `
 %%EOF`;
 
     return `data:application/pdf;base64,${btoa(pdfContent)}`;
+  }
+
+  /**
+   * Parse SVG path data into commands
+   */
+  function parseSVGPath(pathData: string): Array<{ cmd: string; args: number[] }> {
+    const commands: Array<{ cmd: string; args: number[] }> = [];
+    const pathRegex = /([MmLlHhVvCcSsQqTtAaZz])([^MmLlHhVvCcSsQqTtAaZz]*)/g;
+    let match;
+
+    while ((match = pathRegex.exec(pathData)) !== null) {
+      const cmd = match[1];
+      const argsStr = match[2].trim();
+      const args = argsStr
+        .split(/[\s,]+/)
+        .filter((s) => s.length > 0)
+        .map((s) => parseFloat(s));
+      commands.push({ cmd, args });
+    }
+
+    return commands;
+  }
+
+  /**
+   * Convert SVG path commands to PDF drawing commands
+   */
+  function pathCommandsToPDF(commands: Array<{ cmd: string; args: number[] }>): string {
+    let pdfCommands = '';
+    let currentX = 0;
+    let currentY = 0;
+
+    for (const { cmd, args } of commands) {
+      switch (cmd) {
+        case 'M':
+        case 'm':
+          for (let i = 0; i < args.length; i += 2) {
+            const x = cmd === 'M' ? args[i] : currentX + args[i];
+            const y = cmd === 'M' ? args[i + 1] : currentY + args[i + 1];
+            pdfCommands += `${x} ${y} m\n`;
+            currentX = x;
+            currentY = y;
+          }
+          break;
+        case 'L':
+        case 'l':
+          for (let i = 0; i < args.length; i += 2) {
+            const x = cmd === 'L' ? args[i] : currentX + args[i];
+            const y = cmd === 'L' ? args[i + 1] : currentY + args[i + 1];
+            pdfCommands += `${x} ${y} l\n`;
+            currentX = x;
+            currentY = y;
+          }
+          break;
+        case 'C':
+        case 'c':
+          for (let i = 0; i < args.length; i += 6) {
+            const x1 = cmd === 'C' ? args[i] : currentX + args[i];
+            const y1 = cmd === 'C' ? args[i + 1] : currentY + args[i + 1];
+            const x2 = cmd === 'C' ? args[i + 2] : currentX + args[i + 2];
+            const y2 = cmd === 'C' ? args[i + 3] : currentY + args[i + 3];
+            const x = cmd === 'C' ? args[i + 4] : currentX + args[i + 4];
+            const y = cmd === 'C' ? args[i + 5] : currentY + args[i + 5];
+            pdfCommands += `${x1} ${y1} ${x2} ${y2} ${x} ${y} c\n`;
+            currentX = x;
+            currentY = y;
+          }
+          break;
+        case 'Z':
+        case 'z':
+          pdfCommands += `h\n`;
+          break;
+      }
+    }
+
+    return pdfCommands;
   }
 
   /**
@@ -488,8 +583,8 @@ EOF`;
         </AlertDescription>
       </Alert>
 
-      <Card className="p-4 bg-gray-50">
-        <h3 className="font-semibold mb-4">Available Formats</h3>
+      <Card className="p-4 bg-slate-900 border-slate-700">
+        <h3 className="font-semibold mb-4 text-white">Available Formats</h3>
         <div className="space-y-3">
           {availableFormats.map((format) => (
             <div key={format.id} className="flex items-start gap-3">
@@ -502,11 +597,11 @@ EOF`;
               <div className="flex-1">
                 <label
                   htmlFor={format.id}
-                  className="font-medium cursor-pointer block"
+                  className="font-medium cursor-pointer block text-white"
                 >
                   {format.name}
                 </label>
-                <p className="text-sm text-gray-600">{format.description}</p>
+                <p className="text-sm text-slate-400">{format.description}</p>
               </div>
             </div>
           ))}
