@@ -389,8 +389,13 @@ export default function ConversionResultsEnhanced({ results }: ConversionResults
         ...newEditedSVGs,
       }));
 
-      setBulkColorDialogOpen(false);
-      toast.success(`Color changed in ${Object.keys(newEditedSVGs).length} images`);
+      // Force re-render by creating a new state object
+      setTimeout(() => {
+        setBulkColorDialogOpen(false);
+        toast.success(`Color changed in ${Object.keys(newEditedSVGs).length} images`);
+      }, 100);
+
+      setIsApplyingBulkColor(false);
     } catch (error) {
       console.error('Error applying bulk color change:', error);
       toast.error('Failed to apply color change');
@@ -586,7 +591,7 @@ export default function ConversionResultsEnhanced({ results }: ConversionResults
           const displaySVG = editedSVGs[result.id] || result.svg;
 
           return (
-            <Card key={result.id} className="p-4">
+            <Card key={result.id} className="p-4 bg-slate-800 border-slate-700">
               {result.status === 'success' ? (
                 <Tabs defaultValue="preview" className="w-full">
                   <TabsList className="grid w-full grid-cols-3">
