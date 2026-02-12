@@ -182,10 +182,10 @@ export default function Home() {
       </header>
 
       {/* Main Content - Single Page Layout */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Left Column - Upload & Settings */}
-          <div className="space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid lg:grid-cols-5 gap-6">
+          {/* Left Column - Upload & Settings (2 columns width) */}
+          <div className="lg:col-span-2 space-y-6">
             {/* Upload Area */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
               <div className="p-6">
@@ -303,8 +303,8 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Right Column - Preview & Results */}
-          <div className="space-y-6">
+          {/* Right Column - Preview & Results (3 columns width - wider) */}
+          <div className="lg:col-span-3 space-y-6">
             {/* Processing Status */}
             {queueState.isProcessing && (
               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
