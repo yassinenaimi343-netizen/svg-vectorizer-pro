@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Upload, Download, Settings2, Zap, ImageIcon, FileCheck, Moon, Sun, Home } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/_core/hooks/useAuth';
@@ -63,7 +63,7 @@ export default function Tool() {
         handleConvertStart();
       }, 300);
     }
-  }, [autoConvert, uploadedFiles]);
+  }, [autoConvert, uploadedFiles, handleConvertStart]);
 
   useEffect(() => {
     conversionQueue.onStateChange(setQueueState);
@@ -71,16 +71,18 @@ export default function Tool() {
   }, [params]);
 
   const handleFilesSelected = (files: UploadedFile[]) => {
+    console.log('Files selected:', files.length);
     setUploadedFiles(files);
   };
 
-  const handleConvertStart = async () => {
+  const handleConvertStart = useCallback(async () => {
     if (uploadedFiles.length === 0) {
       toast.error('Please upload at least one image');
       return;
     }
 
     console.log('Starting conversion for', uploadedFiles.length, 'files');
+    // Don't clear results immediately - let the queue handle it
     setResults([]);
 
     const queueItems = uploadedFiles.map((uploadedFile) => ({
@@ -180,7 +182,7 @@ export default function Tool() {
     }));
 
     conversionQueue.enqueue(...queueItems);
-  };
+  }, [uploadedFiles, whiteBackground, params]);
 
   const progressPercent =
     queueState.total > 0 ? Math.round((queueState.completed / queueState.total) * 100) : 0;
