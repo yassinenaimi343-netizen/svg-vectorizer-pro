@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, AlertCircle } from 'lucide-react';
+import { Upload, X, AlertCircle, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -186,8 +186,8 @@ export default function BulkUploader({
       {/* File list */}
       {uploadedFiles.length > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-900">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
               {uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''} selected
             </p>
             {uploadedFiles.length > 0 && (
@@ -195,31 +195,32 @@ export default function BulkUploader({
                 onClick={handleClearAll}
                 variant="ghost"
                 size="sm"
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 transition-all duration-200"
               >
+                <X className="w-4 h-4 mr-1" />
                 Clear All
               </Button>
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {uploadedFiles.map((uploadedFile) => (
-              <Card key={uploadedFile.id} className="p-3 relative border-gray-200">
+              <Card key={uploadedFile.id} className="p-4 relative border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200">
                 {/* Remove button */}
                 <button
                   onClick={() => handleRemoveFile(uploadedFile.id)}
-                  className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded transition-colors"
+                  className="absolute top-3 right-3 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all duration-200 group"
                   title="Remove file"
                 >
-                  <X className="w-4 h-4 text-gray-500" />
+                  <X className="w-4 h-4 text-gray-500 group-hover:text-red-600 transition-colors" />
                 </button>
 
                 {/* File info */}
-                <div className="pr-6 space-y-2">
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                <div className="pr-8 space-y-2">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                     {uploadedFile.file.name}
                   </p>
-                  <p className="text-xs text-gray-600">
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
                     {(uploadedFile.file.size / 1024).toFixed(1)} KB
                   </p>
 
@@ -253,9 +254,10 @@ export default function BulkUploader({
           <Button
             onClick={onConvertStart}
             size="lg"
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200"
             disabled={uploadedFiles.length === 0 || uploadedFiles.some((f) => f.status === 'converting')}
           >
+            <Zap className="w-5 h-5 mr-2" />
             Convert {uploadedFiles.length} Image{uploadedFiles.length !== 1 ? 's' : ''} to SVG
           </Button>
         </div>

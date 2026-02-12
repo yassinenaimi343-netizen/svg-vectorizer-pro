@@ -23,8 +23,7 @@ export default function Home() {
     completed: 0,
     total: 0,
   });
-  const [addWhiteBackground, setAddWhiteBackground] = useState(false);
-  const [keepOriginalBackground, setKeepOriginalBackground] = useState(true);
+  const [whiteBackground, setWhiteBackground] = useState(false);
 
   useEffect(() => {
     conversionQueue.onStateChange(setQueueState);
@@ -56,29 +55,26 @@ export default function Home() {
         );
       },
       onComplete: (svg: string) => {
-        // Handle background options
+        // Handle white background option
         let finalSvg = svg;
         
-        // First, remove white background if requested
-        if (!keepOriginalBackground) {
-          // This is handled by the removeBackground param in conversion
-          finalSvg = svg;
-        }
-        
-        // Then, add white background if requested (overrides removal)
-        if (addWhiteBackground) {
+        if (whiteBackground) {
           // Parse the SVG to properly insert the white background
           const parser = new DOMParser();
           const svgDoc = parser.parseFromString(svg, 'image/svg+xml');
           const svgElement = svgDoc.documentElement;
           
-          // Get SVG dimensions
+          // Get SVG dimensions from viewBox or width/height attributes
           const viewBox = svgElement.getAttribute('viewBox');
           let width = '100%';
           let height = '100%';
+          let x = '0';
+          let y = '0';
           
           if (viewBox) {
             const parts = viewBox.split(/\s+/);
+            x = parts[0] || '0';
+            y = parts[1] || '0';
             width = parts[2] || '100%';
             height = parts[3] || '100%';
           } else {
@@ -88,13 +84,13 @@ export default function Home() {
           
           // Create white background rectangle
           const rect = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('x', x);
+          rect.setAttribute('y', y);
           rect.setAttribute('width', width);
           rect.setAttribute('height', height);
           rect.setAttribute('fill', 'white');
-          rect.setAttribute('x', '0');
-          rect.setAttribute('y', '0');
           
-          // Insert as first child
+          // Insert as first child so it appears behind everything
           svgElement.insertBefore(rect, svgElement.firstChild);
           
           finalSvg = new XMLSerializer().serializeToString(svgDoc);
@@ -213,78 +209,40 @@ export default function Home() {
               </div>
 
               <div className="space-y-6">
-                {/* Background Options - Mutually Exclusive */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                    Background Options
-                  </Label>
-                  
-                  {/* Keep Original Background */}
-                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <div className="flex-1">
-                      <Label htmlFor="keep-bg" className="text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer">
-                        Keep Original Background
-                      </Label>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        Preserve the original image background
-                      </p>
-                    </div>
-                    <Switch
-                      id="keep-bg"
-                      checked={keepOriginalBackground && !addWhiteBackground}
-                      onCheckedChange={(checked) => {
-                        setKeepOriginalBackground(checked);
-                        setAddWhiteBackground(false);
-                        setParams({ ...params, removeBackground: false });
-                      }}
-                    />
+                {/* White Background Toggle */}
+                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <div className="flex-1">
+                    <Label htmlFor="white-bg" className="text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer">
+                      White Background
+                    </Label>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      {whiteBackground ? 'White background will be added' : 'Background will be transparent'}
+                    </p>
                   </div>
-
-                  {/* Remove Background */}
-                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <div className="flex-1">
-                      <Label htmlFor="remove-bg" className="text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer">
-                        Remove Background (Transparent)
-                      </Label>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        Make white pixels transparent
-                      </p>
-                    </div>
-                    <Switch
-                      id="remove-bg"
-                      checked={params.removeBackground && !addWhiteBackground}
-                      onCheckedChange={(checked) => {
-                        setParams({ ...params, removeBackground: checked });
-                        if (checked) {
-                          setKeepOriginalBackground(false);
-                          setAddWhiteBackground(false);
-                        }
-                      }}
-                    />
+                  <Switch
+                    id="white-bg"
+                    checked={whiteBackground}
+                    onCheckedChange={setWhiteBackground}
+                  />
+                </div>
+                
+                {/* Remove Background (for transparency) */}
+                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <div className="flex-1">
+                    <Label htmlFor="remove-bg" className="text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer">
+                      Remove White Pixels
+                    </Label>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Make white areas transparent before conversion
+                    </p>
                   </div>
-                  
-                  {/* Add White Background */}
-                  <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <div className="flex-1">
-                      <Label htmlFor="white-bg" className="text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer">
-                        Add White Background
-                      </Label>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        Add a solid white layer behind the SVG
-                      </p>
-                    </div>
-                    <Switch
-                      id="white-bg"
-                      checked={addWhiteBackground}
-                      onCheckedChange={(checked) => {
-                        setAddWhiteBackground(checked);
-                        if (checked) {
-                          setKeepOriginalBackground(false);
-                          setParams({ ...params, removeBackground: false });
-                        }
-                      }}
-                    />
-                  </div>
+                  <Switch
+                    id="remove-bg"
+                    checked={params.removeBackground}
+                    onCheckedChange={(checked) =>
+                      setParams({ ...params, removeBackground: checked })
+                    }
+                  />
                 </div>
 
                 {/* Quality Slider */}

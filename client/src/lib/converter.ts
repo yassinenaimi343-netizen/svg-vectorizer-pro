@@ -110,12 +110,21 @@ async function convertImageDataToSVG(
 
   const svg = await potrace(imageData, potraceParams);
   
-  // Optimize SVG with SVGO
+  // Optimize SVG with SVGO - preserve viewBox for proper scaling
   const optimized = optimize(svg, {
     multipass: true,
     plugins: [
-      'preset-default',
-      'removeViewBox',
+      {
+        name: 'preset-default',
+        params: {
+          overrides: {
+            // Preserve viewBox for proper scaling
+            removeViewBox: false,
+            // Keep dimensions responsive
+            removeDimensions: false,
+          },
+        },
+      },
     ],
   });
 
