@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Download, Settings2, Zap, ImageIcon, FileCheck, Moon, Sun } from 'lucide-react';
+import { Upload, Download, Settings2, Zap, ImageIcon, FileCheck, Moon, Sun, Home } from 'lucide-react';
+import { useLocation } from 'wouter';
 import { useAuth } from '@/_core/hooks/useAuth';
 import BulkUploader, { UploadedFile } from '@/components/BulkUploader';
 import ConversionResultsEnhanced from '@/components/ConversionResultsEnhanced';
@@ -15,6 +16,7 @@ import { useTheme } from '@/hooks/useTheme';
 
 export default function Tool() {
   const { theme, toggleTheme } = useTheme();
+  const [, setLocation] = useLocation();
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [results, setResults] = useState<any[]>([]);
   const [params, setParams] = useState<ConversionParams>(DEFAULT_PARAMS);
@@ -25,42 +27,26 @@ export default function Tool() {
   });
   const [whiteBackground, setWhiteBackground] = useState(false);
 
-  // Check for uploaded file from Landing page
+  // Check for uploaded files from Landing page
   useEffect(() => {
-    const storedFile = sessionStorage.getItem('uploadedFile');
-    console.log('Checking for uploaded file:', storedFile ? 'Found' : 'Not found');
+    const pendingFiles = (window as any).__pendingFiles;
+    console.log('Checking for pending files:', pendingFiles ? 'Found' : 'Not found');
     
-    if (storedFile) {
-      try {
-        const fileData = JSON.parse(storedFile);
-        console.log('File data:', { name: fileData.name, type: fileData.type, size: fileData.size });
-        
-        // Convert base64 back to File object
-        fetch(fileData.data)
-          .then(res => res.blob())
-          .then(blob => {
-            const file = new File([blob], fileData.name, { type: fileData.type });
-            const uploadedFile: UploadedFile = {
-              id: Date.now().toString(),
-              file,
-              status: 'pending',
-              progress: 0,
-            };
-            
-            console.log('Setting uploaded file:', uploadedFile);
-            setUploadedFiles([uploadedFile]);
-            
-            // Clear the stored file after successful load
-            sessionStorage.removeItem('uploadedFile');
-          })
-          .catch(err => {
-            console.error('Error converting blob to file:', err);
-            sessionStorage.removeItem('uploadedFile');
-          });
-      } catch (error) {
-        console.error('Error loading uploaded file:', error);
-        sessionStorage.removeItem('uploadedFile');
-      }
+    if (pendingFiles && pendingFiles.length > 0) {
+      console.log('Processing pending files:', pendingFiles.length);
+      
+      const newUploadedFiles: UploadedFile[] = Array.from(pendingFiles).map((file: File) => ({
+        id: `${Date.now()}-${Math.random()}`,
+        file,
+        status: 'pending' as const,
+        progress: 0,
+      }));
+      
+      console.log('Setting uploaded files:', newUploadedFiles);
+      setUploadedFiles(newUploadedFiles);
+      
+      // Clear the global variable
+      (window as any).__pendingFiles = null;
     }
   }, []);
 

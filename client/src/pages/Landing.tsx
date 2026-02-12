@@ -4,6 +4,9 @@ import { Upload, Zap, CheckCircle, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/hooks/useTheme';
 
+// Create a global variable to store files temporarily
+(window as any).__pendingFiles = null;
+
 export default function Landing() {
   const [, setLocation] = useLocation();
   const [isDragging, setIsDragging] = useState(false);
@@ -15,35 +18,15 @@ export default function Landing() {
       return;
     }
 
-    // Store the file in sessionStorage or pass via state
     const file = files[0];
     console.log('Selected file:', { name: file.name, type: file.type, size: file.size });
     
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result;
-      if (result) {
-        const fileData = {
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          data: result
-        };
-        
-        // Store file data and redirect to tool
-        sessionStorage.setItem('uploadedFile', JSON.stringify(fileData));
-        console.log('Stored file in sessionStorage, redirecting to /tool');
-        
-        // Small delay to ensure storage is complete
-        setTimeout(() => {
-          setLocation('/tool');
-        }, 100);
-      }
-    };
-    reader.onerror = (error) => {
-      console.error('Error reading file:', error);
-    };
-    reader.readAsDataURL(file);
+    // Store the file in a global variable for immediate access
+    (window as any).__pendingFiles = [file];
+    console.log('Stored file in global variable, redirecting to /tool');
+    
+    // Redirect immediately
+    setLocation('/tool');
   };
 
   const handleDrop = (e: React.DragEvent) => {
