@@ -4,14 +4,16 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/Home";
+import Landing from "./pages/Landing";
+import Tool from "./pages/Tool";
 import Account from "./pages/Account";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
+      <Route path={"/"} component={Landing} />
+      <Route path={"/tool"} component={Tool} />
       <Route path={"/account"} component={Account} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}

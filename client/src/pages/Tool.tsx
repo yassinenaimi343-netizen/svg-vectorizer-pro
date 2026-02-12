@@ -13,7 +13,7 @@ import { ConversionParams, DEFAULT_PARAMS } from '@/lib/converter';
 import { conversionQueue, QueueState } from '@/lib/conversionQueue';
 import { useTheme } from '@/hooks/useTheme';
 
-export default function Home() {
+export default function Tool() {
   const { theme, toggleTheme } = useTheme();
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [results, setResults] = useState<any[]>([]);
@@ -24,6 +24,33 @@ export default function Home() {
     total: 0,
   });
   const [whiteBackground, setWhiteBackground] = useState(false);
+
+  // Check for uploaded file from Landing page
+  useEffect(() => {
+    const storedFile = sessionStorage.getItem('uploadedFile');
+    if (storedFile) {
+      try {
+        const fileData = JSON.parse(storedFile);
+        // Convert base64 back to File object
+        fetch(fileData.data)
+          .then(res => res.blob())
+          .then(blob => {
+            const file = new File([blob], fileData.name, { type: fileData.type });
+            const uploadedFile: UploadedFile = {
+              id: Date.now().toString(),
+              file,
+              status: 'pending',
+              progress: 0,
+            };
+            setUploadedFiles([uploadedFile]);
+          });
+        // Clear the stored file
+        sessionStorage.removeItem('uploadedFile');
+      } catch (error) {
+        console.error('Error loading uploaded file:', error);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     conversionQueue.onStateChange(setQueueState);
