@@ -176,6 +176,15 @@ export default function Tool() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLocation('/')}
+                className="hover:bg-slate-100 dark:hover:bg-slate-800"
+                title="Back to Home"
+              >
+                <Home className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+              </Button>
               <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                 <Zap className="w-6 h-6 text-white" />
               </div>
@@ -194,6 +203,7 @@ export default function Tool() {
                 size="sm"
                 onClick={toggleTheme}
                 className="w-9 h-9 p-0"
+                title="Toggle theme"
               >
                 {theme === 'dark' ? (
                   <Sun className="w-5 h-5 text-slate-400 hover:text-slate-200" />
