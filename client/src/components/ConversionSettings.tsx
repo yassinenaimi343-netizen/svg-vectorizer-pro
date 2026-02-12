@@ -1,21 +1,3 @@
-/**
- * SVG Bulk Vectorizer - Conversion Settings Component
- * Based on SVGcode by Google LLC (GPL-2.0)
- * 
- * Provides UI for adjusting Potrace conversion parameters.
- * Adapted from: https://github.com/tomayac/SVGcode
- * 
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- */
-
 import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -53,21 +35,21 @@ export default function ConversionSettings({
       <Button
         onClick={() => setIsOpen(!isOpen)}
         variant="outline"
-        className="w-full justify-between"
+        className="w-full justify-between border-gray-300 text-gray-700 hover:bg-gray-50"
       >
-        <span>Advanced Settings</span>
+        <span className="text-sm font-medium">Advanced Settings</span>
         <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </Button>
 
       {isOpen && (
-        <Card className="mt-3 p-4 space-y-4">
+        <Card className="mt-3 p-4 space-y-4 border-gray-200">
           {/* Turdsize */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="turdsize" className="text-sm font-medium">
+              <Label htmlFor="turdsize" className="text-sm font-medium text-gray-900">
                 Turdsize (Noise Filter)
               </Label>
-              <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">
+              <span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-1 rounded">
                 {params.turdsize}
               </span>
             </div>
@@ -80,7 +62,7 @@ export default function ConversionSettings({
               onValueChange={(value) => handleParamChange('turdsize', value[0])}
               className="w-full"
             />
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-600">
               Higher values remove more noise but may lose detail
             </p>
           </div>
@@ -88,10 +70,10 @@ export default function ConversionSettings({
           {/* Alphamax */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="alphamax" className="text-sm font-medium">
+              <Label htmlFor="alphamax" className="text-sm font-medium text-gray-900">
                 Alphamax (Corner Threshold)
               </Label>
-              <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">
+              <span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-1 rounded">
                 {params.alphamax.toFixed(2)}
               </span>
             </div>
@@ -104,14 +86,14 @@ export default function ConversionSettings({
               onValueChange={(value) => handleParamChange('alphamax', value[0])}
               className="w-full"
             />
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-600">
               Controls corner detection sensitivity
             </p>
           </div>
 
           {/* Turnpolicy */}
           <div className="space-y-2">
-            <Label htmlFor="turnpolicy" className="text-sm font-medium">
+            <Label htmlFor="turnpolicy" className="text-sm font-medium text-gray-900">
               Turn Policy
             </Label>
             <Select
@@ -129,7 +111,7 @@ export default function ConversionSettings({
                 <SelectItem value="4">Left</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-600">
               Determines how corners are traced
             </p>
           </div>
@@ -137,10 +119,10 @@ export default function ConversionSettings({
           {/* Opttolerance */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="opttolerance" className="text-sm font-medium">
+              <Label htmlFor="opttolerance" className="text-sm font-medium text-gray-900">
                 Optimization Tolerance
               </Label>
-              <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">
+              <span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-1 rounded">
                 {params.opttolerance.toFixed(2)}
               </span>
             </div>
@@ -153,7 +135,7 @@ export default function ConversionSettings({
               onValueChange={(value) => handleParamChange('opttolerance', value[0])}
               className="w-full"
             />
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-600">
               Higher values produce simpler curves
             </p>
           </div>
@@ -167,8 +149,22 @@ export default function ConversionSettings({
                 handleParamChange('opticurve', checked === true)
               }
             />
-            <Label htmlFor="opticurve" className="text-sm font-medium cursor-pointer">
+            <Label htmlFor="opticurve" className="text-sm font-medium text-gray-900 cursor-pointer">
               Optimize Curves
+            </Label>
+          </div>
+
+          {/* Remove background */}
+          <div className="flex items-center space-x-2 pt-2">
+            <Checkbox
+              id="removeBackground"
+              checked={params.removeBackground}
+              onCheckedChange={(checked) =>
+                handleParamChange('removeBackground', checked === true)
+              }
+            />
+            <Label htmlFor="removeBackground" className="text-sm font-medium text-gray-900 cursor-pointer">
+              Remove Background (White)
             </Label>
           </div>
 
@@ -177,7 +173,7 @@ export default function ConversionSettings({
             onClick={handleReset}
             variant="outline"
             size="sm"
-            className="w-full mt-4"
+            className="w-full mt-4 border-gray-300 text-gray-700 hover:bg-gray-50"
           >
             Reset to Defaults
           </Button>

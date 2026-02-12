@@ -1,21 +1,3 @@
-/**
- * SVG Bulk Vectorizer - Image Conversion Module
- * Based on SVGcode by Google LLC (GPL-2.0)
- * 
- * This module provides image-to-SVG conversion functionality using Potrace WASM.
- * Adapted from: https://github.com/tomayac/SVGcode
- * 
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- */
-
 import { potrace, init } from 'esm-potrace-wasm';
 import { optimize } from 'svgo';
 
@@ -29,6 +11,7 @@ export interface ConversionParams {
   opttolerance: number;
   opticurve: boolean;
   extractcolors: boolean;
+  removeBackground: boolean;
 }
 
 export interface ConversionResult {
@@ -49,9 +32,30 @@ async function initializePotrace() {
 }
 
 /**
+ * Remove background from ImageData (make white pixels transparent)
+ */
+function removeBackgroundFromImageData(imageData: ImageData): ImageData {
+  const data = imageData.data;
+  const threshold = 240; // Consider pixels with RGB > 240 as white/background
+  
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    
+    // If pixel is close to white, make it transparent
+    if (r > threshold && g > threshold && b > threshold) {
+      data[i + 3] = 0; // Set alpha to 0 (transparent)
+    }
+  }
+  
+  return imageData;
+}
+
+/**
  * Load image file and convert to ImageData
  */
-async function loadImageAsImageData(file: File): Promise<ImageData> {
+async function loadImageAsImageData(file: File, removeBackground: boolean = false): Promise<ImageData> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -66,7 +70,13 @@ async function loadImageAsImageData(file: File): Promise<ImageData> {
             return;
           }
           ctx.drawImage(img, 0, 0);
-          const imageData = ctx.getImageData(0, 0, img.width, img.height);
+          let imageData = ctx.getImageData(0, 0, img.width, img.height);
+          
+          // Remove background if requested
+          if (removeBackground) {
+            imageData = removeBackgroundFromImageData(imageData);
+          }
+          
           resolve(imageData);
         };
         img.onerror = () => reject(new Error('Failed to load image'));
@@ -120,7 +130,7 @@ export async function convertImageFile(
   params: ConversionParams
 ): Promise<ConversionResult> {
   try {
-    const imageData = await loadImageAsImageData(file);
+    const imageData = await loadImageAsImageData(file, params.removeBackground);
     const svg = await convertImageDataToSVG(imageData, params);
     
     // Generate output filename
@@ -152,4 +162,5 @@ export const DEFAULT_PARAMS: ConversionParams = {
   opttolerance: 0.2,
   opticurve: true,
   extractcolors: false,
+  removeBackground: false,
 };

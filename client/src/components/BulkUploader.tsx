@@ -1,21 +1,3 @@
-/**
- * SVG Bulk Vectorizer - Bulk Upload Component
- * Based on SVGcode by Google LLC (GPL-2.0)
- * 
- * Provides drag-drop and file selection UI for bulk image uploads.
- * Adapted from: https://github.com/tomayac/SVGcode
- * 
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- */
-
 import React, { useState, useRef } from 'react';
 import { Upload, X, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -161,21 +143,21 @@ export default function BulkUploader({
         onDrop={handleDrop}
         className={`relative rounded-lg border-2 border-dashed transition-colors ${
           isDragging
-            ? 'border-blue-500 bg-blue-50'
+            ? 'border-emerald-500 bg-emerald-50'
             : 'border-gray-300 bg-gray-50 hover:border-gray-400'
         }`}
       >
         <div className="flex flex-col items-center justify-center py-12 px-4">
-          <Upload className="w-12 h-12 text-gray-400 mb-3" />
-          <p className="text-lg font-medium text-gray-700 mb-1">
+          <Upload className="w-10 h-10 text-gray-400 mb-3" />
+          <p className="text-base font-medium text-gray-900 mb-1">
             Drag and drop images here
           </p>
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-gray-600 mb-4">
             or click to select files (up to {maxFiles} images)
           </p>
           <Button
             onClick={() => fileInputRef.current?.click()}
-            variant="outline"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
             size="sm"
           >
             Select Files
@@ -205,7 +187,7 @@ export default function BulkUploader({
       {uploadedFiles.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-700">
+            <p className="text-sm font-medium text-gray-900">
               {uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''} selected
             </p>
             {uploadedFiles.length > 0 && (
@@ -222,22 +204,22 @@ export default function BulkUploader({
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {uploadedFiles.map((uploadedFile) => (
-              <Card key={uploadedFile.id} className="p-3 relative">
+              <Card key={uploadedFile.id} className="p-3 relative border-gray-200">
                 {/* Remove button */}
                 <button
                   onClick={() => handleRemoveFile(uploadedFile.id)}
-                  className="absolute top-2 right-2 p-1 hover:bg-gray-200 rounded transition-colors"
+                  className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded transition-colors"
                   title="Remove file"
                 >
-                  <X className="w-4 h-4 text-gray-600" />
+                  <X className="w-4 h-4 text-gray-500" />
                 </button>
 
                 {/* File info */}
                 <div className="pr-6 space-y-2">
-                  <p className="text-sm font-medium text-gray-800 truncate">
+                  <p className="text-sm font-medium text-gray-900 truncate">
                     {uploadedFile.file.name}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-600">
                     {(uploadedFile.file.size / 1024).toFixed(1)} KB
                   </p>
 
@@ -245,7 +227,7 @@ export default function BulkUploader({
                   {uploadedFile.status === 'converting' && (
                     <div className="space-y-1">
                       <Progress value={uploadedFile.progress} className="h-1" />
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-600">
                         {uploadedFile.progress}%
                       </p>
                     </div>
@@ -271,7 +253,7 @@ export default function BulkUploader({
           <Button
             onClick={onConvertStart}
             size="lg"
-            className="w-full"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
             disabled={uploadedFiles.length === 0 || uploadedFiles.some((f) => f.status === 'converting')}
           >
             Convert {uploadedFiles.length} Image{uploadedFiles.length !== 1 ? 's' : ''} to SVG

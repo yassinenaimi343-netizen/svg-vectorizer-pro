@@ -1,30 +1,11 @@
-/**
- * SVG Bulk Vectorizer - Main Application
- * Based on SVGcode by Google LLC (GPL-2.0)
- * 
- * Complete bulk image-to-SVG conversion application.
- * Adapted from: https://github.com/tomayac/SVGcode
- * 
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- */
-
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, Zap } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import BulkUploader, { UploadedFile } from '@/components/BulkUploader';
 import ConversionResultsEnhanced from '@/components/ConversionResultsEnhanced';
 import ConversionSettings from '@/components/ConversionSettings';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { ConversionParams, DEFAULT_PARAMS } from '@/lib/converter';
@@ -135,76 +116,65 @@ export default function Home() {
     queueState.total > 0 ? Math.round((queueState.completed / queueState.total) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="border-b border-slate-700 bg-slate-900/50 backdrop-blur">
-        <div className="max-w-6xl mx-auto px-4 py-6">
+      <header className="border-b border-gray-200">
+        <div className="max-w-5xl mx-auto px-6 py-8">
           <div className="flex items-center gap-3 mb-2">
-            <Zap className="w-8 h-8 text-blue-400" />
-            <h1 className="text-3xl font-bold text-white">SVG Bulk Vectorizer</h1>
+            <Sparkles className="w-7 h-7 text-emerald-600" />
+            <h1 className="text-2xl font-semibold text-gray-900">SVG Bulk Vectorizer</h1>
           </div>
-          <p className="text-slate-400">
-            Convert PNG, JPG, and other raster images to high-quality SVG vector graphics in bulk
+          <p className="text-gray-600 text-sm">
+            Convert up to 250 images to SVG vectors instantly in your browser
           </p>
         </div>
       </header>
 
       {/* Main content */}
-      <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-        {/* Info banner */}
-        <Alert className="bg-blue-50 border-blue-200">
-          <AlertCircle className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-900">
-            This application uses <strong>Potrace WASM</strong> for fast, client-side vectorization.
-            All processing happens in your browser—no files are uploaded to servers.
-          </AlertDescription>
-        </Alert>
-
+      <main className="max-w-5xl mx-auto px-6 py-12 space-y-6">
         {/* Settings */}
-        <Card className="p-6 bg-slate-800 border-slate-700">
-          <h2 className="text-lg font-semibold text-white mb-4">Conversion Settings</h2>
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
           <ConversionSettings params={params} onParamsChange={handleParamsChange} />
-        </Card>
+        </div>
 
         {/* Upload section */}
         {!showResults && (
-          <Card className="p-6 bg-slate-800 border-slate-700">
-            <h2 className="text-lg font-semibold text-white mb-4">Upload Images</h2>
+          <div className="bg-white border border-gray-200 rounded-lg p-6">
             <BulkUploader
               maxFiles={250}
               onFilesSelected={handleFilesSelected}
               onConvertStart={handleConvertStart}
             />
-          </Card>
+          </div>
         )}
 
         {/* Processing indicator */}
         {queueState.isProcessing && (
-          <Card className="p-6 bg-slate-800 border-slate-700">
+          <div className="bg-white border border-gray-200 rounded-lg p-6">
             <div className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-white font-medium">Converting images...</p>
-                  <p className="text-sm text-slate-400">
+                  <p className="text-gray-900 font-medium text-sm">Converting images...</p>
+                  <p className="text-xs text-gray-500">
                     {queueState.completed} / {queueState.total}
                   </p>
                 </div>
                 <Progress value={progressPercent} className="h-2" />
-                <p className="text-xs text-slate-400 mt-2">
+                <p className="text-xs text-gray-500 mt-2">
                   {queueState.currentFile && `Current: ${queueState.currentFile}`}
                 </p>
               </div>
             </div>
-          </Card>
+          </div>
         )}
 
         {/* Results section */}
         {results.length > 0 && (
-          <Card className="p-6 bg-slate-800 border-slate-700">
-            <h2 className="text-lg font-semibold text-white mb-4">Conversion Results</h2>
+          <div className="bg-white border border-gray-200 rounded-lg p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-4">Results</h2>
             <ConversionResultsEnhanced results={results} />
             {!queueState.isProcessing && (
-              <div className="mt-6 flex gap-3">
+              <div className="mt-6">
                 <Button
                   onClick={() => {
                     setResults([]);
@@ -212,36 +182,24 @@ export default function Home() {
                     setShowResults(false);
                   }}
                   variant="outline"
-                  className="flex-1"
+                  className="w-full"
                 >
                   Convert More Images
                 </Button>
               </div>
             )}
-          </Card>
+          </div>
         )}
 
         {/* Empty state */}
         {uploadedFiles.length === 0 && results.length === 0 && !queueState.isProcessing && (
-          <Card className="p-12 bg-slate-800 border-slate-700 text-center">
-            <p className="text-slate-400">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-12 text-center">
+            <p className="text-gray-600 text-sm">
               Upload images to get started. Supports PNG, JPG, GIF, WebP, and AVIF formats.
             </p>
-          </Card>
+          </div>
         )}
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-700 bg-slate-900/50 mt-12">
-        <div className="max-w-6xl mx-auto px-4 py-6 text-center text-sm text-slate-400">
-          <p>
-            Based on <a href="https://github.com/tomayac/SVGcode" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">SVGcode</a> by Google LLC
-          </p>
-          <p className="mt-2">
-            Licensed under <a href="/LICENSE" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">GNU General Public License v2.0</a>
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }
