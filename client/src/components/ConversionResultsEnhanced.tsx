@@ -624,10 +624,22 @@ export default function ConversionResultsEnhanced({ results }: ConversionResults
                         </Button>
                       </div>
                     </div>
-                    <div
-                      className="bg-slate-800 rounded border border-slate-700 p-4 flex items-center justify-center min-h-64"
-                      dangerouslySetInnerHTML={{ __html: displaySVG }}
-                    />
+                    <div className="bg-slate-800 dark:bg-slate-950 rounded border border-slate-700 dark:border-slate-600 p-4 min-h-64">
+                      <div 
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ minHeight: '16rem' }}
+                      >
+                        <div 
+                          className="max-w-full max-h-full"
+                          dangerouslySetInnerHTML={{ 
+                            __html: displaySVG.replace(
+                              /<svg/,
+                              '<svg style="max-width: 100%; max-height: 100%; width: auto; height: auto;"'
+                            ) 
+                          }}
+                        />
+                      </div>
+                    </div>
                   </TabsContent>
 
                   {/* Edit Colors Tab */}

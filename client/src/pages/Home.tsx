@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Download, Settings2, Zap, ImageIcon, FileCheck } from 'lucide-react';
+import { Upload, Download, Settings2, Zap, ImageIcon, FileCheck, Moon, Sun } from 'lucide-react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import BulkUploader, { UploadedFile } from '@/components/BulkUploader';
 import ConversionResultsEnhanced from '@/components/ConversionResultsEnhanced';
@@ -11,8 +11,10 @@ import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import { ConversionParams, DEFAULT_PARAMS } from '@/lib/converter';
 import { conversionQueue, QueueState } from '@/lib/conversionQueue';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function Home() {
+  const { theme, toggleTheme } = useTheme();
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [results, setResults] = useState<any[]>([]);
   const [params, setParams] = useState<ConversionParams>(DEFAULT_PARAMS);
@@ -22,6 +24,7 @@ export default function Home() {
     total: 0,
   });
   const [addWhiteBackground, setAddWhiteBackground] = useState(false);
+  const [keepOriginalBackground, setKeepOriginalBackground] = useState(true);
 
   useEffect(() => {
     conversionQueue.onStateChange(setQueueState);
@@ -53,13 +56,48 @@ export default function Home() {
         );
       },
       onComplete: (svg: string) => {
-        // Add white background if requested
+        // Handle background options
         let finalSvg = svg;
+        
+        // First, remove white background if requested
+        if (!keepOriginalBackground) {
+          // This is handled by the removeBackground param in conversion
+          finalSvg = svg;
+        }
+        
+        // Then, add white background if requested (overrides removal)
         if (addWhiteBackground) {
-          finalSvg = svg.replace(
-            /<svg([^>]*)>/,
-            '<svg$1><rect width="100%" height="100%" fill="white"/>'
-          );
+          // Parse the SVG to properly insert the white background
+          const parser = new DOMParser();
+          const svgDoc = parser.parseFromString(svg, 'image/svg+xml');
+          const svgElement = svgDoc.documentElement;
+          
+          // Get SVG dimensions
+          const viewBox = svgElement.getAttribute('viewBox');
+          let width = '100%';
+          let height = '100%';
+          
+          if (viewBox) {
+            const parts = viewBox.split(/\s+/);
+            width = parts[2] || '100%';
+            height = parts[3] || '100%';
+          } else {
+            width = svgElement.getAttribute('width') || '100%';
+            height = svgElement.getAttribute('height') || '100%';
+          }
+          
+          // Create white background rectangle
+          const rect = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('width', width);
+          rect.setAttribute('height', height);
+          rect.setAttribute('fill', 'white');
+          rect.setAttribute('x', '0');
+          rect.setAttribute('y', '0');
+          
+          // Insert as first child
+          svgElement.insertBefore(rect, svgElement.firstChild);
+          
+          finalSvg = new XMLSerializer().serializeToString(svgDoc);
         }
 
         setUploadedFiles((prev) =>
@@ -111,9 +149,9 @@ export default function Home() {
     queueState.total > 0 ? Math.round((queueState.completed / queueState.total) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 transition-colors">
       {/* Minimalist Header */}
-      <header className="border-b border-slate-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -121,13 +159,27 @@ export default function Home() {
                 <Zap className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-900">PNG to SVG</h1>
-                <p className="text-xs text-slate-500">Instant vectorization</p>
+                <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">PNG to SVG</h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Instant vectorization</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-600">
-              <ImageIcon className="w-4 h-4" />
-              <span>{uploadedFiles.length} files</span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                <ImageIcon className="w-4 h-4" />
+                <span>{uploadedFiles.length} files</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleTheme}
+                className="w-9 h-9 p-0"
+              >
+                {theme === 'dark' ? (
+                  <Sun className="w-5 h-5 text-slate-400 hover:text-slate-200" />
+                ) : (
+                  <Moon className="w-5 h-5 text-slate-600 hover:text-slate-900" />
+                )}
+              </Button>
             </div>
           </div>
         </div>
@@ -139,11 +191,11 @@ export default function Home() {
           {/* Left Column - Upload & Settings */}
           <div className="space-y-6">
             {/* Upload Area */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
               <div className="p-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <Upload className="w-5 h-5 text-slate-700" />
-                  <h2 className="text-lg font-semibold text-slate-900">Upload Images</h2>
+                  <Upload className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Upload Images</h2>
                 </div>
                 <BulkUploader
                   maxFiles={250}
@@ -154,56 +206,94 @@ export default function Home() {
             </div>
 
             {/* Settings Panel */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
               <div className="flex items-center gap-2 mb-6">
-                <Settings2 className="w-5 h-5 text-slate-700" />
-                <h2 className="text-lg font-semibold text-slate-900">Options</h2>
+                <Settings2 className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Options</h2>
               </div>
 
               <div className="space-y-6">
-                {/* White Background Toggle */}
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <div className="flex-1">
-                    <Label htmlFor="white-bg" className="text-sm font-medium text-slate-900 cursor-pointer">
-                      Add White Background
-                    </Label>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Add a white layer behind the SVG
-                    </p>
+                {/* Background Options - Mutually Exclusive */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                    Background Options
+                  </Label>
+                  
+                  {/* Keep Original Background */}
+                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="flex-1">
+                      <Label htmlFor="keep-bg" className="text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer">
+                        Keep Original Background
+                      </Label>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Preserve the original image background
+                      </p>
+                    </div>
+                    <Switch
+                      id="keep-bg"
+                      checked={keepOriginalBackground && !addWhiteBackground}
+                      onCheckedChange={(checked) => {
+                        setKeepOriginalBackground(checked);
+                        setAddWhiteBackground(false);
+                        setParams({ ...params, removeBackground: false });
+                      }}
+                    />
                   </div>
-                  <Switch
-                    id="white-bg"
-                    checked={addWhiteBackground}
-                    onCheckedChange={setAddWhiteBackground}
-                  />
-                </div>
 
-                {/* Remove Background */}
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <div className="flex-1">
-                    <Label htmlFor="remove-bg" className="text-sm font-medium text-slate-900 cursor-pointer">
-                      Remove White Background
-                    </Label>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Make white pixels transparent
-                    </p>
+                  {/* Remove Background */}
+                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="flex-1">
+                      <Label htmlFor="remove-bg" className="text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer">
+                        Remove Background (Transparent)
+                      </Label>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Make white pixels transparent
+                      </p>
+                    </div>
+                    <Switch
+                      id="remove-bg"
+                      checked={params.removeBackground && !addWhiteBackground}
+                      onCheckedChange={(checked) => {
+                        setParams({ ...params, removeBackground: checked });
+                        if (checked) {
+                          setKeepOriginalBackground(false);
+                          setAddWhiteBackground(false);
+                        }
+                      }}
+                    />
                   </div>
-                  <Switch
-                    id="remove-bg"
-                    checked={params.removeBackground}
-                    onCheckedChange={(checked) =>
-                      setParams({ ...params, removeBackground: checked })
-                    }
-                  />
+                  
+                  {/* Add White Background */}
+                  <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex-1">
+                      <Label htmlFor="white-bg" className="text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer">
+                        Add White Background
+                      </Label>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Add a solid white layer behind the SVG
+                      </p>
+                    </div>
+                    <Switch
+                      id="white-bg"
+                      checked={addWhiteBackground}
+                      onCheckedChange={(checked) => {
+                        setAddWhiteBackground(checked);
+                        if (checked) {
+                          setKeepOriginalBackground(false);
+                          setParams({ ...params, removeBackground: false });
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {/* Quality Slider */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-slate-900">
+                    <Label className="text-sm font-medium text-slate-900 dark:text-slate-100">
                       Detail Level
                     </Label>
-                    <span className="text-xs font-mono bg-slate-100 text-slate-700 px-2 py-1 rounded">
+                    <span className="text-xs font-mono bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 px-2 py-1 rounded">
                       {params.alphamax.toFixed(1)}
                     </span>
                   </div>
@@ -216,18 +306,18 @@ export default function Home() {
                       setParams({ ...params, alphamax: value[0] })
                     }
                   />
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Higher = smoother, Lower = more detailed
                   </p>
                 </div>
 
                 {/* Optimize Toggle */}
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
                   <div className="flex-1">
-                    <Label htmlFor="optimize" className="text-sm font-medium text-slate-900 cursor-pointer">
+                    <Label htmlFor="optimize" className="text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer">
                       Optimize Curves
                     </Label>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                       Smoother but slightly less accurate
                     </p>
                   </div>
@@ -259,17 +349,17 @@ export default function Home() {
           <div className="space-y-6">
             {/* Processing Status */}
             {queueState.isProcessing && (
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-slate-900">Converting...</h3>
-                    <span className="text-sm text-slate-600">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Converting...</h3>
+                    <span className="text-sm text-slate-600 dark:text-slate-400">
                       {queueState.completed} / {queueState.total}
                     </span>
                   </div>
                   <Progress value={progressPercent} className="h-3" />
                   {queueState.currentFile && (
-                    <p className="text-xs text-slate-500 truncate">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                       Processing: {queueState.currentFile}
                     </p>
                   )}
@@ -279,13 +369,13 @@ export default function Home() {
 
             {/* Results */}
             {results.length > 0 && (
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <FileCheck className="w-5 h-5 text-green-600" />
-                    <h2 className="text-lg font-semibold text-slate-900">Results</h2>
+                    <FileCheck className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Results</h2>
                   </div>
-                  <span className="text-sm text-slate-600">
+                  <span className="text-sm text-slate-600 dark:text-slate-400">
                     {results.filter((r) => r.status === 'success').length} converted
                   </span>
                 </div>
@@ -307,24 +397,24 @@ export default function Home() {
 
             {/* Empty State */}
             {uploadedFiles.length === 0 && results.length === 0 && !queueState.isProcessing && (
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-12">
                 <div className="text-center space-y-4">
-                  <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto">
-                    <ImageIcon className="w-10 h-10 text-slate-400" />
+                  <div className="w-20 h-20 bg-slate-100 dark:bg-slate-900 rounded-full flex items-center justify-center mx-auto">
+                    <ImageIcon className="w-10 h-10 text-slate-400 dark:text-slate-600" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
                       No images yet
                     </h3>
-                    <p className="text-sm text-slate-500 max-w-sm mx-auto">
+                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
                       Upload PNG, JPG, GIF, WebP, or AVIF images to convert them to scalable SVG vectors
                     </p>
                   </div>
-                  <div className="pt-4 flex flex-wrap gap-2 justify-center text-xs text-slate-400">
-                    <span className="px-2 py-1 bg-slate-50 rounded">Fast</span>
-                    <span className="px-2 py-1 bg-slate-50 rounded">Client-side</span>
-                    <span className="px-2 py-1 bg-slate-50 rounded">Private</span>
-                    <span className="px-2 py-1 bg-slate-50 rounded">Free</span>
+                  <div className="pt-4 flex flex-wrap gap-2 justify-center text-xs text-slate-400 dark:text-slate-500">
+                    <span className="px-2 py-1 bg-slate-50 dark:bg-slate-900 rounded">Fast</span>
+                    <span className="px-2 py-1 bg-slate-50 dark:bg-slate-900 rounded">Client-side</span>
+                    <span className="px-2 py-1 bg-slate-50 dark:bg-slate-900 rounded">Private</span>
+                    <span className="px-2 py-1 bg-slate-50 dark:bg-slate-900 rounded">Free</span>
                   </div>
                 </div>
               </div>
