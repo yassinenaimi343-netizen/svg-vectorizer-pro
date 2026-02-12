@@ -624,17 +624,17 @@ export default function ConversionResultsEnhanced({ results }: ConversionResults
                         </Button>
                       </div>
                     </div>
-                    <div className="bg-slate-800 dark:bg-slate-950 rounded border border-slate-700 dark:border-slate-600 p-8 overflow-auto">
+                    <div className="bg-white dark:bg-slate-800 rounded border border-slate-300 dark:border-slate-600 p-8 overflow-auto">
                       <div 
                         className="w-full flex items-center justify-center"
                         style={{ minHeight: '24rem' }}
                       >
                         <div 
-                          className="w-full h-full flex items-center justify-center"
+                          className="w-full flex items-center justify-center"
                           dangerouslySetInnerHTML={{ 
                             __html: displaySVG.replace(
                               /<svg([^>]*)>/,
-                              '<svg$1 style="max-width: 100%; height: auto; display: block;"'
+                              '<svg$1 style="max-width: 100%; height: auto; display: block; margin: 0 auto;"'
                             ) 
                           }}
                         />
