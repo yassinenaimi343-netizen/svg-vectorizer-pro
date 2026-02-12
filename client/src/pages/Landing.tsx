@@ -10,23 +10,38 @@ export default function Landing() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0) {
+      console.log('No files selected');
+      return;
+    }
 
     // Store the file in sessionStorage or pass via state
     const file = files[0];
+    console.log('Selected file:', { name: file.name, type: file.type, size: file.size });
+    
     const reader = new FileReader();
     reader.onload = (e) => {
       const result = e.target?.result;
       if (result) {
-        // Store file data and redirect to tool
-        sessionStorage.setItem('uploadedFile', JSON.stringify({
+        const fileData = {
           name: file.name,
           type: file.type,
           size: file.size,
           data: result
-        }));
-        setLocation('/tool');
+        };
+        
+        // Store file data and redirect to tool
+        sessionStorage.setItem('uploadedFile', JSON.stringify(fileData));
+        console.log('Stored file in sessionStorage, redirecting to /tool');
+        
+        // Small delay to ensure storage is complete
+        setTimeout(() => {
+          setLocation('/tool');
+        }, 100);
       }
+    };
+    reader.onerror = (error) => {
+      console.error('Error reading file:', error);
     };
     reader.readAsDataURL(file);
   };

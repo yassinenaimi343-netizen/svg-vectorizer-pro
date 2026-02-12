@@ -28,9 +28,13 @@ export default function Tool() {
   // Check for uploaded file from Landing page
   useEffect(() => {
     const storedFile = sessionStorage.getItem('uploadedFile');
+    console.log('Checking for uploaded file:', storedFile ? 'Found' : 'Not found');
+    
     if (storedFile) {
       try {
         const fileData = JSON.parse(storedFile);
+        console.log('File data:', { name: fileData.name, type: fileData.type, size: fileData.size });
+        
         // Convert base64 back to File object
         fetch(fileData.data)
           .then(res => res.blob())
@@ -42,12 +46,20 @@ export default function Tool() {
               status: 'pending',
               progress: 0,
             };
+            
+            console.log('Setting uploaded file:', uploadedFile);
             setUploadedFiles([uploadedFile]);
+            
+            // Clear the stored file after successful load
+            sessionStorage.removeItem('uploadedFile');
+          })
+          .catch(err => {
+            console.error('Error converting blob to file:', err);
+            sessionStorage.removeItem('uploadedFile');
           });
-        // Clear the stored file
-        sessionStorage.removeItem('uploadedFile');
       } catch (error) {
         console.error('Error loading uploaded file:', error);
+        sessionStorage.removeItem('uploadedFile');
       }
     }
   }, []);
