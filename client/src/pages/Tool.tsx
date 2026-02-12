@@ -26,6 +26,7 @@ export default function Tool() {
     total: 0,
   });
   const [whiteBackground, setWhiteBackground] = useState(false);
+  const [autoConvert, setAutoConvert] = useState(false);
 
   // Check for uploaded files from Landing page
   useEffect(() => {
@@ -42,19 +43,27 @@ export default function Tool() {
         progress: 0,
       }));
       
-      console.log('Setting uploaded files and auto-converting:', newUploadedFiles);
+      console.log('Setting uploaded files for auto-convert:', newUploadedFiles);
       setUploadedFiles(newUploadedFiles);
+      setAutoConvert(true);
       
       // Clear the global variable
       (window as any).__pendingFiles = null;
-      
-      // Automatically start conversion after files are set
-      setTimeout(() => {
-        console.log('Auto-starting conversion...');
-        handleConvertStart(newUploadedFiles);
-      }, 500);
     }
   }, []);
+  
+  // Auto-convert when files are loaded from landing page
+  useEffect(() => {
+    if (autoConvert && uploadedFiles.length > 0) {
+      console.log('Auto-converting uploaded files...');
+      setAutoConvert(false);
+      
+      // Small delay to ensure state is updated
+      setTimeout(() => {
+        handleConvertStart();
+      }, 300);
+    }
+  }, [autoConvert, uploadedFiles]);
 
   useEffect(() => {
     conversionQueue.onStateChange(setQueueState);
@@ -65,17 +74,16 @@ export default function Tool() {
     setUploadedFiles(files);
   };
 
-  const handleConvertStart = async (filesToConvert?: UploadedFile[]) => {
-    const files = filesToConvert || uploadedFiles;
-    
-    if (files.length === 0) {
+  const handleConvertStart = async () => {
+    if (uploadedFiles.length === 0) {
       toast.error('Please upload at least one image');
       return;
     }
 
+    console.log('Starting conversion for', uploadedFiles.length, 'files');
     setResults([]);
 
-    const queueItems = files.map((uploadedFile) => ({
+    const queueItems = uploadedFiles.map((uploadedFile) => ({
       id: uploadedFile.id,
       file: uploadedFile.file,
       onProgress: (progress: number) => {
