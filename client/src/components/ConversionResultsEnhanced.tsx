@@ -591,59 +591,90 @@ export default function ConversionResultsEnhanced({ results }: ConversionResults
           const displaySVG = editedSVGs[result.id] || result.svg;
 
           return (
-            <Card key={result.id} className="p-4 bg-slate-800 border-slate-700">
+            <Card key={result.id} className="overflow-hidden bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
               {result.status === 'success' ? (
                 <Tabs defaultValue="preview" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="preview">Preview</TabsTrigger>
-                    <TabsTrigger value="edit">Edit Colors</TabsTrigger>
-                    <TabsTrigger value="export">Export</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-3 bg-slate-100 dark:bg-slate-900">
+                    <TabsTrigger value="preview" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">
+                      Preview
+                    </TabsTrigger>
+                    <TabsTrigger value="edit" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">
+                      Edit Colors
+                    </TabsTrigger>
+                    <TabsTrigger value="export" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">
+                      Export
+                    </TabsTrigger>
                   </TabsList>
 
                   {/* Preview Tab */}
-                  <TabsContent value="preview" className="space-y-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-semibold">{result.fileName}</h4>
+                  <TabsContent value="preview" className="p-6 space-y-4">
+                    {/* Header with filename and actions */}
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
+                      <h4 className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                        {result.fileName}
+                      </h4>
                       <div className="flex gap-2">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => copySVG(result.id, displaySVG)}
+                          className="hover:bg-slate-100 dark:hover:bg-slate-700"
                         >
                           {copiedId === result.id ? (
-                            <Check className="w-4 h-4 text-green-600" />
+                            <>
+                              <Check className="w-4 h-4 mr-1 text-green-600" />
+                              Copied
+                            </>
                           ) : (
-                            <Copy className="w-4 h-4" />
+                            <>
+                              <Copy className="w-4 h-4 mr-1" />
+                              Copy
+                            </>
                           )}
                         </Button>
                         <Button
                           size="sm"
                           onClick={() => downloadSVG(result.fileName, displaySVG)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
                         >
-                          <Download className="w-4 h-4" />
+                          <Download className="w-4 h-4 mr-1" />
+                          Download
                         </Button>
                       </div>
                     </div>
-                    <div className="bg-white dark:bg-slate-800 rounded border border-slate-300 dark:border-slate-600 p-8 overflow-auto">
-                      <div 
-                        className="w-full flex items-center justify-center"
-                        style={{ minHeight: '24rem' }}
-                      >
+
+                    {/* SVG Preview Container */}
+                    <div className="relative bg-slate-50 dark:bg-slate-900 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 p-8">
+                      <div className="flex items-center justify-center min-h-[300px]">
                         <div 
-                          className="w-full flex items-center justify-center"
-                          dangerouslySetInnerHTML={{ 
-                            __html: displaySVG.replace(
-                              /<svg([^>]*)>/,
-                              '<svg$1 style="max-width: 100%; height: auto; display: block; margin: 0 auto;"'
-                            ) 
+                          dangerouslySetInnerHTML={{ __html: displaySVG }}
+                          className="max-w-full"
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
                           }}
                         />
                       </div>
                     </div>
+
+                    {/* Info footer */}
+                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2">
+                      <span>Original: {result.originalFileName}</span>
+                      <span>Format: SVG</span>
+                    </div>
                   </TabsContent>
 
                   {/* Edit Colors Tab */}
-                  <TabsContent value="edit" className="space-y-4">
+                  <TabsContent value="edit" className="p-6 space-y-4">
+                    <div className="mb-4">
+                      <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                        Color Editor
+                      </h4>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        Select colors in the SVG and adjust them using the color picker
+                      </p>
+                    </div>
                     <SVGColorEditor
                       svgContent={result.svg}
                       fileName={result.fileName}
@@ -652,7 +683,15 @@ export default function ConversionResultsEnhanced({ results }: ConversionResults
                   </TabsContent>
 
                   {/* Export Tab */}
-                  <TabsContent value="export" className="space-y-4">
+                  <TabsContent value="export" className="p-6 space-y-4">
+                    <div className="mb-4">
+                      <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                        Export Options
+                      </h4>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        Download in different formats and sizes
+                      </p>
+                    </div>
                     <ExportOptions
                       svgContent={displaySVG}
                       imageBuffer={result.imageBuffer}
