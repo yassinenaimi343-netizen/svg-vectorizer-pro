@@ -42,11 +42,17 @@ export default function Tool() {
         progress: 0,
       }));
       
-      console.log('Setting uploaded files:', newUploadedFiles);
+      console.log('Setting uploaded files and auto-converting:', newUploadedFiles);
       setUploadedFiles(newUploadedFiles);
       
       // Clear the global variable
       (window as any).__pendingFiles = null;
+      
+      // Automatically start conversion after files are set
+      setTimeout(() => {
+        console.log('Auto-starting conversion...');
+        handleConvertStart(newUploadedFiles);
+      }, 500);
     }
   }, []);
 
@@ -59,15 +65,17 @@ export default function Tool() {
     setUploadedFiles(files);
   };
 
-  const handleConvertStart = async () => {
-    if (uploadedFiles.length === 0) {
+  const handleConvertStart = async (filesToConvert?: UploadedFile[]) => {
+    const files = filesToConvert || uploadedFiles;
+    
+    if (files.length === 0) {
       toast.error('Please upload at least one image');
       return;
     }
 
     setResults([]);
 
-    const queueItems = uploadedFiles.map((uploadedFile) => ({
+    const queueItems = files.map((uploadedFile) => ({
       id: uploadedFile.id,
       file: uploadedFile.file,
       onProgress: (progress: number) => {
